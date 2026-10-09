@@ -1,33 +1,26 @@
 [project]
 name = "woobe-knowledge-service"
 version = "0.1.0"
-description = "Versioned private knowledge sources with PostgreSQL lexical retrieval"
+description = "WKS workspace: reusable core and standalone API/frontend"
 requires-python = ">=3.12"
-dependencies = [
-  "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "pydantic-settings>=2.8,<3",
-  "sqlalchemy>=2.0.40,<3", "psycopg[binary]>=3.2,<4", "alembic>=1.15,<2",
-  "boto3>=1.37,<2", "mcp>=1.12,<2", "httpx>=0.28,<1",
-  "pillow>=11,<13", "pypdf>=5,<7", "pypdfium2>=4.30,<6",
-  "python-docx>=1.1,<2", "python-pptx>=1,<2", "trafilatura>=2,<3",
-  "prometheus-client>=0.21,<1", "pyyaml>=6,<7"
-]
+dependencies = ["wks-api==0.1.0"]
 
 [project.optional-dependencies]
-docling = ["docling>=2.60,<3", "torch>=2.14,<2.15", "torchvision>=0.29,<0.30"]
-asr = ["faster-whisper>=1.2,<2", "av>=15,<16"]
+docling = ["wks-core[docling]"]
+asr = ["wks-core[asr]"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1", "reportlab>=4,<5", "moto[s3]>=5,<6"]
 
-[project.scripts]
-wks = "wks.cli:main"
+[tool.uv]
+package = false
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.uv.workspace]
+members = ["packages/wks-core", "packages/wks-api"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/wks"]
+[tool.uv.sources]
+wks-api = { workspace = true }
+wks-core = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -40,12 +33,7 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
 
-# Optional Docling uses official CPU wheels, avoiding a CUDA runtime in CPU deployments.
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cpu" }
-torchvision = { index = "pytorch-cpu" }

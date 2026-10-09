@@ -3,12 +3,11 @@ import socket
 import boto3
 import pytest
 from moto import mock_aws
-
-from wks.domain.models import Error
-from wks.infrastructure.capture import destination
-from wks.infrastructure.enrichment import NoopEnricher
-from wks.infrastructure.storage import FilesystemStore, S3Store
-from wks.settings import Settings
+from wks_core.domain.models import Error
+from wks_core.settings import Settings
+from wks_core.storage.capture import destination
+from wks_core.storage.enrichment import NoopEnricher
+from wks_core.storage.storage import FilesystemStore, S3Store
 
 
 @pytest.mark.parametrize(
@@ -45,7 +44,7 @@ def test_A33_mixed_dns_rebinding_blocked(monkeypatch):
 def test_pinned_connection_revalidates_redirect(monkeypatch, tmp_path):
     import http.client
 
-    from wks.infrastructure.capture import fetch_public
+    from wks_core.storage.capture import fetch_public
 
     monkeypatch.setattr(
         socket,
@@ -126,9 +125,9 @@ def test_domain_dependency_boundary():
     import ast
     from pathlib import Path
 
-    for file in Path("src/wks/domain").glob("*.py"):
+    for file in Path("packages/wks-core/src/wks_core/domain").glob("*.py"):
         for node in ast.walk(ast.parse(file.read_text())):
             if isinstance(node, ast.ImportFrom):
                 assert not (node.module or "").startswith(
-                    ("fastapi", "sqlalchemy", "docling", "mcp", "wks.infrastructure")
+                    ("fastapi", "sqlalchemy", "docling", "mcp", "wks_core.storage")
                 )

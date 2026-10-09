@@ -3,9 +3,8 @@ from pathlib import Path
 
 import pytest
 from conftest import process_all, register_text, upload
-
-from wks.domain.models import Error
-from wks.infrastructure.processing import (
+from wks_core.domain.models import Error
+from wks_core.storage.processing import (
     AudioProcessor,
     DoclingProcessor,
     ImageProcessor,

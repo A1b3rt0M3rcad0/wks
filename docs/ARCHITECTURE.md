@@ -12,11 +12,22 @@ flowchart LR
   Worker --> Processors[Texto / PDF / Docling / OCR / ASR / FFmpeg]
 ```
 
+O workspace contém dois pacotes, seguindo a organização do WOS:
+
+- `packages/wks-core/src/wks_core`: `domain`, `application`, `ports`, `storage`, settings e worker.
+- `packages/wks-api/src/wks_api`: `http`, `mcp`, `contracts`, `authentication`, `server`, `web/assets`.
+
 `domain` contém tipos portáveis, sem frameworks. `application.Service` concentra autorização,
 idempotência e transações. O mapeamento ORM é compartilhado de forma pragmática com essa
-camada; transportes não executam SQL de domínio. `infrastructure` implementa storage,
-extração, captura e manutenção. `presentation` valida contratos, resolve autenticação e
-encaminha HTTP/MCP ao mesmo serviço. `bootstrap` seleciona adapters.
+camada; transportes não executam SQL de domínio. `storage` implementa persistência,
+extração, captura e manutenção. `http` e `mcp` validam contratos e invocam o Service;
+`server/bootstrap` seleciona adapters. A API depende do núcleo; o sentido inverso é
+verificado por teste. Migrações continuam na raiz do deployment.
+
+O frontend `/app/` usa os mesmos contratos HTTP e autorização. `authentication` mantém
+sessões opacas com hash no banco, cookies HttpOnly e verificação de CSRF/origem. MCP exige
+Bearer e grant, sem aceitar cookies do navegador. Restore invalida sessões do backup.
+Veja [a decisão e a referência WOS](adr/0004-wos-package-and-workspace-pattern.md).
 
 O banco impõe namespace consistente entre fonte/versão/representação/asset/segmento,
 collections, e pointers atuais. A representação publicada é imutável por trigger. Cada

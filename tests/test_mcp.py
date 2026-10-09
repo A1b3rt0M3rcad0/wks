@@ -8,8 +8,7 @@ import uvicorn
 from conftest import process_all, register_text, upload
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
-
-from wks.presentation.http import create_app
+from wks_api.http.app import create_app
 
 
 @pytest.fixture

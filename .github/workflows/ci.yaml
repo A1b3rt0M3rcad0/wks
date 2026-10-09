@@ -32,8 +32,41 @@ jobs:
           WKS_PG_TEST_CONTAINER: ${{ job.services.postgres.id }}
           HF_HUB_OFFLINE: '1'
           OMP_NUM_THREADS: '2'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tests/web/package-lock.json
+      - run: npm ci --prefix tests/web
+      - run: npx playwright install --with-deps chromium
+        working-directory: tests/web
+      - run: uv run --no-sync python scripts/browser_fixture.py
+      - name: Browser contracts with API and real worker
+        run: |
+          uv run --no-sync python scripts/browser_server.py > .local/browser-api.log 2>&1 &
+          api_pid=$!
+          uv run --no-sync python scripts/browser_server.py --worker > .local/browser-worker.log 2>&1 &
+          worker_pid=$!
+          trap 'kill "$api_pid" "$worker_pid"' EXIT
+          python - <<'PY'
+          import time, urllib.request
+          for attempt in range(60):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:8082/health/ready') as response:
+                      if response.status == 200:
+                          break
+              except OSError:
+                  time.sleep(1)
+          else:
+              raise RuntimeError('Browser API did not become ready')
+          PY
+          npm --prefix tests/web test
+      - run: tests/web/node_modules/.bin/prettier --check 'packages/wks-api/src/wks_api/web/assets/*' 'tests/web/*.mjs'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: results.xml
+          path: |
+            results.xml
+            .local/browser-results.json
+            docs/ui-workspace/*.png

@@ -16,3 +16,9 @@ tokens, environment values or source payloads in logs. Migrations are append-onl
 Lipo/Woobe changes are outside the user-confirmed scope of this delivery. Their integration
 must be explicitly authorized in a separate task. No claim of external model vision/audio
 without provider-specific evidence.
+
+Read ROADMAP.md and packages/README.md before modifying package boundaries. Keep wks-api
+dependent on wks-core only; core must not import API or transport frameworks. Frontend
+assets live in the API wheel; follow docs/ui-workspace and the WOS reference design.
+Node is test tooling only. Cookie mutations require CSRF and origin validation; MCP remains
+Bearer-only. Run browser contracts when changing user journeys. WOS access is read-only.

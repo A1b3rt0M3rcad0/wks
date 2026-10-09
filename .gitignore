@@ -8,3 +8,6 @@ __pycache__/
 *.egg-info/
 dist/
 :memory:.ses
+node_modules/
+test-results/
+playwright-report/

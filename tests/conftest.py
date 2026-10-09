@@ -6,13 +6,12 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
-
-from wks.bootstrap import build
-from wks.cli import provision
-from wks.infrastructure.database import Base
-from wks.presentation.http import create_app
-from wks.settings import Settings
-from wks.worker import Worker
+from wks_api.http.app import create_app
+from wks_api.server.bootstrap import build
+from wks_api.server.cli import provision
+from wks_api.server.config import Settings
+from wks_core.storage.database import Base
+from wks_core.worker import Worker
 
 
 @pytest.fixture(scope="session")

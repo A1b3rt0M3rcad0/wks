@@ -27,7 +27,9 @@ services:
       WKS_STORAGE_PATH: /app/.local/objects
       WKS_HTTP_HOST: 0.0.0.0
       WKS_OCR_LANGUAGE: por+eng
-      WKS_ENV: development
+      WKS_ENV: ${WKS_ENV:-development}
+      WKS_WEB_PUBLIC_ORIGIN: ${WKS_WEB_PUBLIC_ORIGIN:-}
+      WKS_WEB_SESSION_TTL_SECONDS: ${WKS_WEB_SESSION_TTL_SECONDS:-28800}
       WKS_ASR_ENABLED: ${WKS_ASR_ENABLED:-false}
       WKS_ASR_MODEL_PATH: ${WKS_ASR_MODEL_PATH:-}
       WKS_VIDEO_ENABLED: ${WKS_VIDEO_ENABLED:-false}

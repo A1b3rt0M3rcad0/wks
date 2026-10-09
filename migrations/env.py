@@ -1,7 +1,6 @@
 from alembic import context
-
-from wks.infrastructure.database import Base, database
-from wks.settings import Settings
+from wks_core.settings import Settings
+from wks_core.storage.database import Base, database
 
 engine, _ = database(Settings().database_url)
 with engine.connect() as connection:

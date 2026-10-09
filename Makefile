@@ -3,8 +3,8 @@ export UV_CACHE_DIR ?= /workspace/.cache/uv
 install:
 	uv sync --frozen
 lint:
-	uv run --no-sync ruff check src tests scripts migrations
-	uv run --no-sync ruff format --check src tests scripts migrations
+	uv run --no-sync ruff check packages tests scripts migrations
+	uv run --no-sync ruff format --check packages tests scripts migrations
 test:
 	uv run --no-sync pytest -q
 test-unit:

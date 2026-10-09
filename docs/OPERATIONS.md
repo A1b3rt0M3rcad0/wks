@@ -105,6 +105,21 @@ tráfego. Não reative acesso a dados excluídos por simplesmente restaurar snap
 Tokens de provisionamento e cursor secret ficam no vault/local configuration e são preservados
 separadamente; hashes no dump não recuperam secrets.
 
+Restore remove as sessões de navegador do snapshot. Usuários devem fazer login novamente;
+isso impede reativar cookies revogados entre o backup e a restauração.
+
+## Frontend e sessões
+
+O frontend e seus assets fazem parte do pacote `wks-api` e da imagem padrão, em `/app/`.
+Não há servidor Node em produção. Use HTTPS, `WKS_ENV=production`, cursor secret forte e
+`WKS_WEB_PUBLIC_ORIGIN` com a origem pública exata (sem barra final). Cookies em produção
+são Secure; não se deve tentar login de produção em HTTP. Configure o proxy reverso para
+servir `/app/`, `/v1/` e `/mcp` no mesmo host. Não é necessário habilitar CORS.
+
+`WKS_WEB_SESSION_TTL_SECONDS` define 300–86400 segundos (padrão 28800). Sessões expiradas
+são removidas no próximo login. Logout revoga a sessão no banco; desabilitar o client
+invalida todas as suas sessões. O MCP não usa essa autenticação de navegador.
+
 ## Observabilidade e rollout
 
 Readiness checa migration, DB, FTS e storage; não certifica um provider remoto. `/metrics`

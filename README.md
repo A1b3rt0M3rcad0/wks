@@ -21,6 +21,17 @@ ASR e vídeo sob flags, bookmark e captura explícita protegida contra SSRF, pes
 outline/read paginados, assets e downloads autenticados, grants por revisão, MCP somente
 leitura, outbox, auditoria sem conteúdo, métricas e backup/restore/reindexação.
 
+## Frontend e organização
+
+O [workspace humano](docs/ui-workspace/README.md) está em `/app/`: biblioteca, busca,
+coleções, versões, leitura e mídia, com o padrão visual do WOS. Abra a URL da API e use
+a credencial do client provisionado. O navegador recebe uma sessão HttpOnly, sem guardar
+a credencial em armazenamento local.
+
+O código segue [dois pacotes](packages/README.md): `wks-core` contém domínio, casos de uso,
+portas e adapters; `wks-api` contém HTTP/MCP, autenticação, contratos, servidor e frontend.
+A API depende do núcleo. O WOS foi consultado somente para referência, sem alterações nele.
+
 ## Rodar com Compose
 
 Pré-requisitos: Docker com Compose. Defaults são exclusivos de desenvolvimento local.

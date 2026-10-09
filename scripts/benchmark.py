@@ -12,12 +12,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from sqlalchemy import create_engine, text
-
-from wks.bootstrap import build
-from wks.cli import provision
-from wks.domain.models import new_id
-from wks.settings import Settings
-from wks.worker import Worker
+from wks_api.server.bootstrap import build
+from wks_api.server.cli import provision
+from wks_core.domain.models import new_id
+from wks_core.settings import Settings
+from wks_core.worker import Worker
 
 
 def main():

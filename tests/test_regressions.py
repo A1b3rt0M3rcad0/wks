@@ -4,17 +4,16 @@ import httpx
 import pytest
 from conftest import process_all, register_text
 from sqlalchemy import select
-
-from wks.domain.models import Error
-from wks.infrastructure.database import Source
-from wks.infrastructure.enrichment import HTTPMediaEnricher
-from wks.worker import Worker
+from wks_core.domain.models import Error
+from wks_core.storage.database import Source
+from wks_core.storage.enrichment import HTTPMediaEnricher
+from wks_core.worker import Worker
 
 
 def test_development_cursor_key_is_atomic_across_process_starts(env, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
 
-    from wks.application.service import Service
+    from wks_core.application.service import Service
 
     monkeypatch.chdir(env["tmp"])
     settings = env["s"].settings.model_copy(update={"cursor_secret": ""})
@@ -31,8 +30,7 @@ def test_docling_pdf_in_bounded_worker(env):
     from pathlib import Path
 
     from conftest import upload
-
-    from wks.infrastructure.database import Representation
+    from wks_core.storage.database import Representation
 
     pytest.importorskip("docling")
     root = Path(".local/models/docling").resolve()

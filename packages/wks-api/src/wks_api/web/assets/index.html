@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WKS · Biblioteca</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Ir para o conteúdo</a>
+    <header class="topbar">
+      <a href="/app/" class="brand"
+        ><span class="brand-mark">w</span>WKS<span class="brand-caption"
+          >Workspace</span
+        ></a
+      ><span class="topbar-note"
+        >Fontes preservadas. Conhecimento com origem.</span
+      >
+      <div class="topbar-right">
+        <span class="connection" id="connection">Biblioteca privada</span
+        ><button id="logout" class="quiet" hidden>Encerrar sessão</button>
+      </div>
+    </header>
+    <section id="connect" class="login-layout">
+      <div class="login-story">
+        <p class="eyebrow">WOOBE KNOWLEDGE SERVICE</p>
+        <h1>Sua biblioteca.<br />Contexto que permanece.</h1>
+        <p>
+          Preserve fontes, encontre passagens e consulte a origem.<br />O mesmo
+          conhecimento para humanos e agentes.
+        </p>
+        <div class="login-cards">
+          <div>
+            <span class="badge orange">01 · Preservar</span
+            ><strong>Cada fonte tem uma história</strong
+            ><small>Originais e versões mantidos juntos.</small>
+          </div>
+          <div>
+            <span class="badge green">02 · Encontrar</span
+            ><strong>Texto com contexto</strong
+            ><small>Busca, passagens e referências verificáveis.</small>
+          </div>
+          <div>
+            <span class="badge violet">03 · Consultar</span
+            ><strong>Volte à evidência</strong
+            ><small>Leia o conteúdo e abra a mídia original.</small>
+          </div>
+        </div>
+      </div>
+      <div class="panel login-panel">
+        <p class="eyebrow">SEU ESPAÇO DE CONHECIMENTO</p>
+        <h2>Vamos continuar?</h2>
+        <p>Acesse as fontes do seu contexto.</p>
+        <form id="login">
+          <label for="token">Credencial de acesso</label
+          ><input
+            id="token"
+            type="password"
+            autocomplete="off"
+            required
+            minlength="32"
+            placeholder="Sua credencial de acesso"
+          /><button type="submit">Entrar</button>
+          <p id="login-error" class="error" role="alert"></p>
+        </form>
+        <p class="login-footnote">
+          Sua credencial é trocada por uma sessão segura.<br />Ela não fica
+          armazenada no navegador.
+        </p>
+      </div>
+    </section>
+    <div id="workspace" hidden>
+      <aside class="sidebar" aria-label="Navegação da biblioteca">
+        <div class="workspace-switch">
+          <span class="workspace-symbol">W</span>
+          <div>
+            <label for="namespace">Contexto de conhecimento</label
+            ><select
+              id="namespace"
+              aria-label="Contexto de conhecimento"
+            ></select>
+          </div>
+        </div>
+        <button id="more-contexts" class="quiet small" hidden>
+          Mais contextos
+        </button>
+        <p class="sidebar-heading">
+          BIBLIOTECA<button
+            id="new-context"
+            class="icon-button"
+            aria-label="Criar contexto"
+          >
+            +
+          </button>
+        </p>
+        <nav>
+          <button data-view="summary" class="nav-item selected">
+            ◫ <span>Visão geral</span></button
+          ><button data-view="sources" class="nav-item">
+            ▤ <span>Fontes</span></button
+          ><button data-view="search" class="nav-item">
+            ⌕ <span>Busca textual</span></button
+          ><button data-view="collections" class="nav-item">
+            ▦ <span>Coleções</span>
+          </button>
+        </nav>
+        <div id="collection-nav" class="collection-nav"></div>
+        <div class="sidebar-footer">
+          <span id="client-name"></span>
+          <p>Preservar · encontrar · consultar</p>
+        </div>
+      </aside>
+      <main id="main-content" tabindex="-1">
+        <div id="notice" role="status" aria-live="polite" hidden></div>
+        <div class="breadcrumb">
+          <span id="context-title"></span> / Biblioteca
+        </div>
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow accent">CONHECIMENTO COMPARTILHADO</p>
+            <h1 id="page-title">Sua biblioteca de conhecimento</h1>
+            <p id="page-subtitle">
+              Fontes, versões e referências do seu contexto.
+            </p>
+          </div>
+          <div class="heading-actions">
+            <button id="refresh" class="quiet">Atualizar</button
+            ><button id="new-source">Adicionar fonte</button>
+          </div>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Visualização">
+          <button data-view="summary" role="tab" aria-selected="true">
+            ◫ Resumo</button
+          ><button data-view="sources" role="tab" aria-selected="false">
+            ▤ Fontes</button
+          ><button data-view="search" role="tab" aria-selected="false">
+            ⌕ Busca</button
+          ><button data-view="collections" role="tab" aria-selected="false">
+            ▦ Coleções
+          </button>
+        </div>
+        <section id="summary-view">
+          <div id="metrics" class="metrics"></div>
+          <div class="summary-grid">
+            <article class="panel purpose">
+              <h2>Conhecimento para continuar</h2>
+              <p>
+                Consulte a passagem, acompanhe a versão e retorne ao original. A
+                origem permanece junto de cada resultado.
+              </p>
+              <div class="actions">
+                <button id="summary-add" class="quiet">Adicionar fonte</button
+                ><button id="summary-search" class="quiet">
+                  Buscar no contexto
+                </button>
+              </div>
+              <small
+                >As contagens vêm da biblioteca inteira. A lista abaixo é
+                paginada.</small
+              >
+            </article>
+            <article class="panel">
+              <h2>Cobertura das fontes</h2>
+              <div id="coverage" class="coverage"></div>
+              <p class="footnote">
+                Texto extraído não significa compreensão de toda a mídia.
+              </p>
+            </article>
+            <article class="panel wide">
+              <div class="section-heading">
+                <h2>Fontes para consultar</h2>
+                <button id="see-all" class="text-button">Ver todas →</button>
+              </div>
+              <div id="recent-sources"></div>
+            </article>
+          </div>
+        </section>
+        <section id="sources-view" hidden>
+          <div class="filter-bar">
+            <label for="availability-filter">Cobertura</label
+            ><select id="availability-filter">
+              <option value="">Todas as fontes</option>
+              <option value="text_ready">Texto disponível</option>
+              <option value="text_partial">Cobertura parcial</option>
+              <option value="metadata_only">Somente metadados</option>
+              <option value="unsupported_processing">
+                Formato não processado
+              </option></select
+            ><span id="list-caption"></span>
+          </div>
+          <div id="source-list" class="source-list"></div>
+          <button id="more-sources" class="quiet load-more" hidden>
+            Carregar mais fontes
+          </button>
+        </section>
+        <section id="search-view" hidden>
+          <form id="search-form" class="search-form panel">
+            <div class="search-input">
+              <label for="query">Buscar passagens nas fontes</label
+              ><input
+                id="query"
+                required
+                maxlength="1000"
+                placeholder="Ex.: resistências em paralelo"
+              /><button>Buscar</button>
+            </div>
+            <div class="search-options">
+              <label
+                >Consulta<select id="search-mode">
+                  <option value="lexical">Palavras</option>
+                  <option value="phrase">Frase exata</option>
+                </select></label
+              ><label
+                >Idioma<select id="search-language">
+                  <option value="pt">Português</option>
+                  <option value="en">Inglês</option>
+                  <option value="simple">Outros idiomas</option>
+                </select></label
+              ><label
+                >Coleção<select id="search-collection">
+                  <option value="">Todo o contexto</option>
+                </select></label
+              >
+            </div>
+          </form>
+          <p id="search-caption" class="footnote">
+            A busca considera as fontes autorizadas deste contexto.
+          </p>
+          <div id="search-results"></div>
+          <button id="more-search" class="quiet load-more" hidden>
+            Carregar mais resultados
+          </button>
+        </section>
+        <section id="collections-view" hidden>
+          <div class="section-heading">
+            <h2>Organize fontes sem duplicar originais</h2>
+            <button id="new-collection" class="quiet">Criar coleção</button>
+          </div>
+          <div id="collections-list" class="collection-grid"></div>
+          <button id="more-collections" class="quiet load-more" hidden>
+            Mais coleções
+          </button>
+        </section>
+      </main>
+    </div>
+    <dialog id="editor" class="editor">
+      <form id="editor-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">SUA BIBLIOTECA</p>
+            <h2 id="editor-title"></h2>
+          </div>
+          <button
+            type="button"
+            id="close-editor"
+            class="icon-button"
+            aria-label="Fechar formulário"
+          >
+            ×
+          </button>
+        </div>
+        <div id="editor-fields"></div>
+        <p id="editor-error" class="error" role="alert"></p>
+        <div class="dialog-footer">
+          <button type="button" id="cancel-editor" class="quiet">
+            Cancelar</button
+          ><button id="save-editor">Salvar</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="detail" class="detail">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">FONTE E PROVENIÊNCIA</p>
+          <h2 id="detail-title"></h2>
+        </div>
+        <button
+          id="close-detail"
+          class="icon-button"
+          aria-label="Fechar detalhe"
+        >
+          ×
+        </button>
+      </div>
+      <div id="detail-content"></div>
+      <div class="dialog-footer">
+        <button id="detail-refresh" class="quiet">Atualizar fonte</button
+        ><button id="reprocess" class="quiet">Reprocessar</button
+        ><button id="delete-source" class="danger">Excluir fonte</button>
+      </div>
+    </dialog>
+  </body>
+</html>

@@ -2,14 +2,16 @@ import json
 import os
 import shutil
 import subprocess
+from datetime import timedelta
 
 import pytest
 from conftest import process_all, register_text
 from sqlalchemy import create_engine, text
-
-from wks.bootstrap import build
-from wks.domain.models import new_id
-from wks.infrastructure.maintenance import backup, reindex, restore
+from wks_api.authentication.session import WebSession
+from wks_api.server.bootstrap import build
+from wks_core.domain.models import new_id
+from wks_core.storage.database import now
+from wks_core.storage.maintenance import backup, reindex, restore
 
 
 def test_A35_coordinated_backup_restore_same_refs_acl(env):
@@ -20,6 +22,14 @@ def test_A35_coordinated_backup_restore_same_refs_acl(env):
     other = register_text(env, user="b", title="Private B")
     process_all(env)
     original = env["s"].search(env["a"], {"query": "paralelo"})
+    with env["s"].sessions.begin() as db:
+        db.add(
+            WebSession(
+                token_hash="a" * 64,
+                client_id=env["a"].client_id,
+                expires_at=now() + timedelta(hours=1),
+            )
+        )
     dest = env["tmp"] / "backup"
     result = backup(env["s"], dest, container)
     assert result["objects"] == 2
@@ -37,10 +47,12 @@ def test_A35_coordinated_backup_restore_same_refs_acl(env):
     s, engine = build(settings)
     try:
         restore(s, dest, container)
+        with s.sessions() as db:
+            assert db.get(WebSession, "a" * 64) is None
         p = s.authenticate(env["a_token"])
         restored = s.search(p, {"query": "paralelo"})
         assert restored["items"] == original["items"]
-        from wks.domain.models import Error
+        from wks_core.domain.models import Error
 
         with pytest.raises(Error):
             s.source_get(p, other["source_id"])
@@ -60,7 +72,7 @@ def test_A35_coordinated_backup_restore_same_refs_acl(env):
 
 
 def test_A34_recapture_new_version_idempotent(env, monkeypatch):
-    from wks.infrastructure.capture import capture_source
+    from wks_core.storage.capture import capture_source
 
     s = env["s"]
     s.settings.web_capture_enabled = True
@@ -86,7 +98,7 @@ def test_A34_recapture_new_version_idempotent(env, monkeypatch):
             "status": 200,
         }
 
-    monkeypatch.setattr("wks.infrastructure.capture.fetch_public", fake_fetch)
+    monkeypatch.setattr("wks_core.storage.capture.fetch_public", fake_fetch)
     one = capture_source(s, env["a"], "capture1", r["source_id"])
     assert capture_source(s, env["a"], "capture1", r["source_id"]) == one
     two = capture_source(s, env["a"], "capture2", r["source_id"])
@@ -113,17 +125,17 @@ def test_cursor_snapshot_survives_new_publications(env):
 
 
 def test_worker_timeout_kills_child_group_and_retries(env):
-    from wks.worker import Worker
+    from wks_core.worker import Worker
 
     r = register_text(env)
     env["s"].settings.processing_timeout_seconds = 1
     from unittest.mock import patch
 
-    with patch("wks.worker.subprocess.Popen") as popen:
+    with patch("wks_core.worker.subprocess.Popen") as popen:
         proc = popen.return_value
         proc.pid = 99999999
         proc.wait.side_effect = [subprocess.TimeoutExpired("test", 1), 0]
-        with patch("wks.worker.os.killpg") as kill:
+        with patch("wks_core.worker.os.killpg") as kill:
             Worker(env["s"]).run_once()
         assert kill.called
     status = env["s"].status(env["a"], r["operation_id"])

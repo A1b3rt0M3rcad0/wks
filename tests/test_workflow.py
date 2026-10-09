@@ -7,9 +7,8 @@ import pytest
 from conftest import process_all, register_text, upload
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
-
-from wks.domain.models import Block, Error, ExtractedRepresentation
-from wks.infrastructure.database import (
+from wks_core.domain.models import Block, Error, ExtractedRepresentation
+from wks_core.storage.database import (
     Blob,
     CollectionSource,
     Grant,
@@ -18,7 +17,7 @@ from wks.infrastructure.database import (
     SourceVersion,
     now,
 )
-from wks.worker import Worker
+from wks_core.worker import Worker
 
 
 def test_A01_tenant_isolation_all_paths(env):

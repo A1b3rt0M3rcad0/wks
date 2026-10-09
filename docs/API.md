@@ -1,11 +1,22 @@
 # Contrato HTTP v1
 
-OpenAPI executável é `/openapi.json`; a cópia gerada fica em `openapi.json` neste diretório.
-`Authorization: Bearer …` é obrigatório nas operações de domínio. Mutação externa exige
+OpenAPI executável é `/openapi.json`; a cópia gerada fica em
+[`packages/wks-api/openapi.json`](../packages/wks-api/openapi.json).
+`Authorization: Bearer …` autentica integrações. O workspace `/app/` também aceita sessão
+HttpOnly; mutações por cookie exigem `X-WKS-CSRF` e origem válida. MCP exige Bearer.
+Mutação externa exige
 `Idempotency-Key` (máximo 180 caracteres), único por client. Mesmo payload retorna receipt;
 outro payload sob a mesma chave retorna 409. Não há retries cegos de mutações no servidor.
 
 ## Fluxo
+
+O workspace troca a credencial client em `POST /app/session`, consulta identidade/CSRF em
+`GET /app/session` e encerra a sessão em `DELETE /app/session`. `GET /v1/namespaces` e
+`GET /v1/namespaces/{id}/collections` são paginados e restritos ao owner. O resumo em
+`GET /v1/namespaces/{id}/summary` conta todas as fontes ativas do contexto, sua disponibilidade
+e jobs pendentes, independentemente da página do catálogo. As consultas do resumo são
+individuais, sem prometer um snapshot atômico durante publicação concorrente.
+`GET /v1/sources` aceita `namespace_id` e `availability`, além dos filtros existentes.
 
 1. `POST /v1/namespaces` cria escopo pertencente ao client.
 2. `POST /v1/sources` recebe `kind=text/upload/bookmark`, título e metadados. Upload declara
