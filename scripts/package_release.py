@@ -125,7 +125,6 @@ def build(version, revision, destination):
                 "export",
                 "--frozen",
                 "--no-dev",
-                "--emit-index-url",
                 "--package",
                 package,
                 "--no-emit-workspace",
@@ -135,6 +134,8 @@ def build(version, revision, destination):
                 "--output-file",
                 str(requirements),
             ]
+            if component == "docling":
+                args.append("--emit-index-url")
             if extra:
                 args.extend(["--extra", extra])
             run(*args, cwd=staging, env=environment)

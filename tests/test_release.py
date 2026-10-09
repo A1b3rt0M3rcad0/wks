@@ -162,3 +162,24 @@ def test_real_candidate_survives_actions_upload_download_without_hidden_files(
     )
     assert manifest == json.loads((candidate / "release-manifest.json").read_text())
     assert not any(name.startswith(".") for name in manifest["files"])
+
+
+def test_component_exports_preserve_only_the_required_index(tmp_path, monkeypatch):
+    # This uses the real committed archive and exports, catching an unrelated CPU
+    # index leaking into API/native/media installation (uv first-index semantics).
+    builder = module("package_release")
+    clone = tmp_path / "source"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--shared", str(SCRIPTS.parent), str(clone)], check=True
+    )
+    monkeypatch.chdir(clone)
+    monkeypatch.setattr(builder, "ROOT", clone)
+    revision = identity.git("rev-parse", "HEAD")
+    candidate = tmp_path / "candidate"
+    builder.build(identity.source_floor(revision), revision, candidate)
+    for component in ("api", "native", "media"):
+        assert (
+            "download.pytorch.org"
+            not in (candidate / (component + "-requirements.txt")).read_text()
+        )
+    assert "download.pytorch.org" in (candidate / "docling-requirements.txt").read_text()
