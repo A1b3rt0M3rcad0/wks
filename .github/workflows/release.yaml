@@ -184,6 +184,9 @@ jobs:
           path: .local/images/*.json
           if-no-files-found: error
   qualify:
+    permissions:
+      contents: read
+      packages: read
     needs: [identity, image]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -200,6 +203,11 @@ jobs:
           pattern: wks-image-*
           merge-multiple: true
           path: .local/images
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Qualify API and independently deployed native and media workers
         env:
           WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
