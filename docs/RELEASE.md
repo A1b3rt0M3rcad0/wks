@@ -72,11 +72,12 @@ pinning seguro. O fallback MCP declara mídia disponível sem afirmar que chegou
 
 ## Preservação da entrega
 
-Os commits são locais neste checkout; não houve push nem publicação GitHub. O pacote de
-código contém os arquivos versionados, a documentação e os fixtures; não contém tokens,
+Repositório de entrega: [A1b3rt0M3rcad0/wks](https://github.com/A1b3rt0M3rcad0/wks),
+branch `master`, com o histórico completo da implementação. O pacote de código contém
+os arquivos versionados, a documentação e os fixtures; não contém tokens,
 .env, caches, pesos de modelos ou dados de usuários. O Git bundle preserva também os commits.
 
-O rascunho cloud guarda instalação/inicialização e a revisão local. Salvar o rascunho não
-publica o ambiente. A restauração automática de commits locais pela plataforma ainda não é
-confiável; preserve o pacote/bundle, e revise/salve/publique as configurações para reutilizar
-a instalação. Não foi declarada restauração em uma nova sessão cloud.
+O rascunho cloud guarda instalação/inicialização e a revisão da entrega. Salvar o rascunho
+não publica o ambiente; revise/salve/publique as configurações para reutilizar a instalação.
+O código está preservado também no GitHub; os modelos e dados locais continuam fora do Git.
+Não foi declarada restauração em uma nova sessão cloud.
