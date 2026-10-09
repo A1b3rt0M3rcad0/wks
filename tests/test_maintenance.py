@@ -6,8 +6,12 @@ from datetime import timedelta
 
 import pytest
 from conftest import process_all, register_text
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from wks_api.authentication.models import Account, AuthAttempt
+from wks_api.authentication.passwords import password_hash, token_hash
 from wks_api.authentication.session import WebSession
+from wks_api.http.app import create_app
 from wks_api.server.bootstrap import build
 from wks_core.domain.models import new_id
 from wks_core.storage.database import now
@@ -23,6 +27,15 @@ def test_A35_coordinated_backup_restore_same_refs_acl(env):
     process_all(env)
     original = env["s"].search(env["a"], {"query": "paralelo"})
     with env["s"].sessions.begin() as db:
+        db.add(
+            Account(
+                client_id=env["a"].client_id,
+                username="restored-account",
+                password_hash=password_hash("test-backup-password"),
+                recovery_token_hash=token_hash("test-recovery-secret"),
+            )
+        )
+        db.add(AuthAttempt(key_hash="b" * 64, window_started=now(), attempts=20))
         db.add(
             WebSession(
                 token_hash="a" * 64,
@@ -49,6 +62,18 @@ def test_A35_coordinated_backup_restore_same_refs_acl(env):
         restore(s, dest, container)
         with s.sessions() as db:
             assert db.get(WebSession, "a" * 64) is None
+            assert db.get(AuthAttempt, "b" * 64) is None
+            assert db.get(Account, env["a"].client_id).recovery_token_hash == token_hash(
+                "test-recovery-secret"
+            )
+        with TestClient(create_app(s, engine)) as http:
+            response = http.post(
+                "/app/session",
+                json={"username": "restored-account", "password": "test-backup-password"},
+            )
+            assert response.status_code == 200
+            assert http.get("/app/session").json()["username"] == "restored-account"
+            assert http.get("/v1/namespaces").status_code == 200
         p = s.authenticate(env["a_token"])
         restored = s.search(p, {"query": "paralelo"})
         assert restored["items"] == original["items"]

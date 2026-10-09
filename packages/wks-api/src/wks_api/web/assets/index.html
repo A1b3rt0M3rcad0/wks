@@ -19,6 +19,8 @@
       >
       <div class="topbar-right">
         <span class="connection" id="connection">Biblioteca privada</span
+        ><button id="account-recovery" class="quiet" hidden>
+          Token de recuperação</button
         ><button id="logout" class="quiet" hidden>Encerrar sessão</button>
       </div>
     </header>
@@ -50,24 +52,114 @@
       </div>
       <div class="panel login-panel">
         <p class="eyebrow">SEU ESPAÇO DE CONHECIMENTO</p>
-        <h2>Vamos continuar?</h2>
-        <p>Acesse as fontes do seu contexto.</p>
-        <form id="login">
-          <label for="token">Credencial de acesso</label
-          ><input
-            id="token"
+        <h2 id="auth-title">Conectando ao WKS</h2>
+        <p id="auth-description">Verificando sua biblioteca.</p>
+        <form id="login" hidden>
+          <label for="username">Username</label>
+          <input
+            id="username"
+            autocomplete="username"
+            required
+            minlength="3"
+            maxlength="64"
+            placeholder="Seu username"
+          />
+          <label for="password">Senha</label>
+          <input
+            id="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            maxlength="128"
+          />
+          <div id="confirm-password-field" hidden>
+            <label for="confirm-password">Confirme a senha</label>
+            <input
+              id="confirm-password"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+            />
+            <small>Use uma senha com pelo menos 12 caracteres.</small>
+          </div>
+          <button id="auth-submit" type="submit">Entrar</button>
+        </form>
+        <form id="recover-form" hidden>
+          <label for="recovery-input">Token de recuperação</label>
+          <input
+            id="recovery-input"
             type="password"
             autocomplete="off"
             required
-            minlength="32"
-            placeholder="Sua credencial de acesso"
-          /><button type="submit">Entrar</button>
-          <p id="login-error" class="error" role="alert"></p>
+            maxlength="256"
+          />
+          <label for="new-password">Nova senha</label>
+          <input
+            id="new-password"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="12"
+            maxlength="128"
+          />
+          <label for="confirm-new-password">Confirme a nova senha</label>
+          <input
+            id="confirm-new-password"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="12"
+            maxlength="128"
+          />
+          <button type="submit">Recuperar conta</button>
         </form>
+        <p id="login-error" class="error" role="alert"></p>
+        <button id="forgot-password" type="button" class="quiet" hidden>
+          Recuperar minha conta
+        </button>
+        <button id="back-login" type="button" class="quiet" hidden>
+          Voltar ao login
+        </button>
+        <button id="auth-retry" type="button" class="quiet" hidden>
+          Tentar novamente
+        </button>
         <p class="login-footnote">
-          Sua credencial é trocada por uma sessão segura.<br />Ela não fica
-          armazenada no navegador.
+          Sua conta protege a biblioteca. Sua senha não fica armazenada no
+          navegador.
         </p>
+        <section id="recovery-receipt" hidden aria-labelledby="recovery-title">
+          <h2 id="recovery-title">Guarde seu token de recuperação</h2>
+          <p>
+            Ele permite recuperar sua conta e definir uma nova senha. Salve em
+            um lugar seguro; o WKS não poderá mostrar este token novamente.
+          </p>
+          <label for="recovery-output">Seu token de recuperação</label>
+          <input
+            id="recovery-output"
+            type="password"
+            readonly
+            autocomplete="off"
+          />
+          <label class="check-label"
+            ><input id="show-recovery" type="checkbox" /> Mostrar token</label
+          >
+          <div class="actions">
+            <button id="download-recovery" type="button" class="quiet">
+              Baixar token</button
+            ><button id="copy-recovery" type="button" class="quiet">
+              Copiar token
+            </button>
+          </div>
+          <p id="recovery-feedback" role="status"></p>
+          <label class="check-label"
+            ><input id="saved-recovery" type="checkbox" /> Salvei meu token de
+            recuperação</label
+          >
+          <button id="continue-recovery" type="button" disabled>
+            Ir para minha biblioteca
+          </button>
+        </section>
       </div>
     </section>
     <div id="workspace" hidden>

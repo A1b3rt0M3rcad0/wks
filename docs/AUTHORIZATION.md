@@ -1,6 +1,23 @@
 # Autorização e isolamento
 
-Provisionamento é operacional por `wks provision-client`. Tokens aleatórios são gravados
+Contas humanas são criadas em `/app/` com username (3–64 caracteres, normalizado para
+minúsculas) e senha de 12–128 caracteres. O bootstrap admite somente a primeira conta,
+com lock PostgreSQL entre réplicas. Clients de integração já existentes não contam como
+contas humanas. A conta tem seu próprio client e continua sujeita ao isolamento de namespaces.
+Não há conta padrão, cadastro público adicional ou associação automática a dados de outro client.
+
+Senhas usam scrypt com salt aleatório; tokens de recuperação possuem 256 bits de entropia
+e apenas SHA-256 é armazenado. Cadastro, recuperação e rotação autenticada mostram o token
+uma única vez. Recuperação usa token e nova senha, consome o token, entrega outro e revoga
+todas as sessões anteriores na mesma transação. A rotação exige senha atual e CSRF.
+Tentativas têm limites compartilhados no PostgreSQL por ação/IP, com chaves hash e janela
+de cinco minutos. Atrás de proxy, configure somente proxies confiáveis no servidor.
+
+Cookies são HttpOnly/SameSite Strict, Secure em produção, com CSRF e validação de origem
+nas mutações. Credenciais não vão para localStorage/sessionStorage nem logs. A migração
+0006 revoga cookies anteriores; dados e credenciais de integração são preservados.
+
+Provisionamento de integrações é operacional por `wks provision-client`. Tokens aleatórios são gravados
 somente no arquivo indicado (`0600`); PostgreSQL conserva apenas SHA-256. Secret manager/TLS
 e distribuição de credenciais pertencem ao deployment. Não há token mestre padrão na API.
 

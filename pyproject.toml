@@ -1,9 +1,9 @@
 [project]
 name = "woobe-knowledge-service"
-version = "0.1.0"
+version = "0.2.0"
 description = "WKS workspace: reusable core and standalone API/frontend"
 requires-python = ">=3.12"
-dependencies = ["wks-api==0.1.0"]
+dependencies = ["wks-api==0.2.0"]
 
 [project.optional-dependencies]
 docling = ["wks-core[docling]"]

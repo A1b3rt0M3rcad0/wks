@@ -35,6 +35,13 @@ const state = {
   uploadMax: 64 * 1024 * 1024,
 };
 const errors = {
+  "auth.invalid_credentials": "Username ou senha inválidos.",
+  "auth.invalid_recovery":
+    "O token de recuperação é inválido ou já foi utilizado.",
+  "auth.setup_complete":
+    "A primeira conta já foi criada. Entre com seu username e senha.",
+  "auth.rate_limited":
+    "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
   "auth.unauthenticated": "Sua sessão terminou. Entre novamente.",
   "auth.csrf_invalid": "A sessão mudou. Recarregue a página e tente novamente.",
   "auth.scope_mismatch": "Esta credencial não permite acessar o workspace.",
@@ -92,7 +99,7 @@ async function request(path, options = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401 && path !== "/app/session") {
+    if (response.status === 401 && path.startsWith("/v1")) {
       disconnect();
       $("login-error").textContent = errors["auth.unauthenticated"];
     }
@@ -119,7 +126,16 @@ function disconnect() {
   $("workspace").hidden = true;
   $("connect").hidden = false;
   $("logout").hidden = true;
-  $("token").value = "";
+  $("password").value = "";
+  $("confirm-password").value = "";
+  $("account-recovery").hidden = true;
+  clearRecovery();
+  authMode = null;
+  $("login").hidden = true;
+  $("recover-form").hidden = true;
+  $("auth-title").textContent = "Conectando ao WKS";
+  $("auth-description").textContent = "Verificando sua biblioteca.";
+  loadAuthMode().catch(showAuthError);
   for (const id of [
     "source-list",
     "recent-sources",
@@ -134,6 +150,7 @@ async function connect() {
   state.csrf = user.csrf_token;
   state.uploadMax = user.upload_max_bytes;
   $("client-name").textContent = user.name;
+  $("account-recovery").hidden = !user.username;
   $("connect").hidden = true;
   $("workspace").hidden = false;
   $("logout").hidden = false;
@@ -143,25 +160,206 @@ async function connect() {
   renderNamespaces();
   await switchNamespace(state.namespaces[0]?.id || "");
 }
+let authMode = null;
+let savedToken = "";
+let savedUsername = "";
+function showAuthError(error) {
+  $("login-error").textContent =
+    error instanceof TypeError
+      ? "A conexão foi interrompida. Tente novamente."
+      : error.message;
+}
+function setAuthMode(mode) {
+  authMode = mode;
+  clearRecovery();
+  $("login-error").textContent = "";
+  $("login").hidden = mode === "recover";
+  $("recover-form").hidden = mode !== "recover";
+  $("forgot-password").hidden = mode !== "login";
+  $("back-login").hidden = mode !== "recover";
+  $("auth-retry").hidden = true;
+  $("confirm-password-field").hidden = mode !== "setup";
+  $("confirm-password").disabled = mode !== "setup";
+  $("confirm-password").required = mode === "setup";
+  $("password").minLength = mode === "setup" ? 12 : 1;
+  $("password").autocomplete =
+    mode === "setup" ? "new-password" : "current-password";
+  $("auth-submit").textContent =
+    mode === "setup" ? "Criar primeira conta" : "Entrar";
+  $("auth-title").textContent =
+    mode === "setup"
+      ? "Crie sua primeira conta"
+      : mode === "recover"
+        ? "Recupere sua conta"
+        : "Vamos continuar?";
+  $("auth-description").textContent =
+    mode === "setup"
+      ? "Sua biblioteca está pronta para começar. Escolha um username e uma senha."
+      : mode === "recover"
+        ? "Use o token que você salvou para definir uma nova senha."
+        : "Entre com seu username e senha para acessar sua biblioteca.";
+  for (const id of [
+    "password",
+    "confirm-password",
+    "recovery-input",
+    "new-password",
+    "confirm-new-password",
+  ])
+    $(id).value = "";
+}
+async function loadAuthMode() {
+  const setup = await request("/app/setup");
+  setAuthMode(setup.setup_required ? "setup" : "login");
+}
+$("auth-retry").onclick = () => loadAuthMode().catch(showAuthError);
+$("forgot-password").onclick = () => setAuthMode("recover");
+$("back-login").onclick = () => setAuthMode("login");
+function clearRecovery() {
+  savedToken = "";
+  savedUsername = "";
+  $("recovery-output").value = "";
+  $("recovery-output").type = "password";
+  $("show-recovery").checked = false;
+  $("saved-recovery").checked = false;
+  $("continue-recovery").disabled = true;
+  $("recovery-receipt").hidden = true;
+  $("recovery-feedback").textContent = "";
+}
+function showRecovery(data) {
+  clearRecovery();
+  state.csrf = data.csrf_token || state.csrf;
+  savedToken = data.recovery_token;
+  savedUsername = data.username;
+  $("username").value = data.username;
+  $("login").hidden = true;
+  $("recover-form").hidden = true;
+  $("forgot-password").hidden = true;
+  $("back-login").hidden = true;
+  $("auth-title").textContent = "Sua conta está protegida";
+  $("auth-description").textContent =
+    "Falta guardar seu acesso de recuperação.";
+  $("connect").hidden = false;
+  $("workspace").hidden = true;
+  $("recovery-output").value = savedToken;
+  $("recovery-receipt").hidden = false;
+}
+$("show-recovery").onchange = () => {
+  $("recovery-output").type = $("show-recovery").checked ? "text" : "password";
+};
+$("saved-recovery").onchange = () => {
+  $("continue-recovery").disabled = !$("saved-recovery").checked;
+};
+$("continue-recovery").onclick = async () => {
+  $("continue-recovery").disabled = true;
+  try {
+    await connect();
+    clearRecovery();
+  } catch (error) {
+    showAuthError(error);
+    $("continue-recovery").disabled = false;
+  }
+};
+$("download-recovery").onclick = () => {
+  if (!savedToken) return;
+  const url = URL.createObjectURL(
+    new Blob([savedToken + "\n"], { type: "text/plain" }),
+  );
+  const link = el("a");
+  link.href = url;
+  link.download = "wks-recuperacao-" + savedUsername + ".txt";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  $("recovery-feedback").textContent =
+    "Token baixado. Guarde o arquivo em um lugar seguro.";
+};
+$("copy-recovery").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(savedToken);
+    $("recovery-feedback").textContent = "Token copiado.";
+  } catch {
+    $("recovery-output").select();
+    $("recovery-feedback").textContent =
+      "Selecione Mostrar token e copie o valor.";
+  }
+};
 $("login").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const submit = $("login").querySelector("button");
-  submit.disabled = true;
+  const submit = $("auth-submit");
+  if (!authMode) return;
   $("login-error").textContent = "";
+  if (
+    authMode === "setup" &&
+    $("password").value !== $("confirm-password").value
+  ) {
+    $("login-error").textContent = "As senhas precisam ser iguais.";
+    return;
+  }
+  submit.disabled = true;
   try {
-    await request("/app/session", {
-      method: "POST",
-      body: { token: $("token").value },
-    });
-    $("token").value = "";
-    await connect();
+    const data = await request(
+      authMode === "setup" ? "/app/setup" : "/app/session",
+      {
+        method: "POST",
+        body: { username: $("username").value, password: $("password").value },
+      },
+    );
+    if (data.recovery_token) showRecovery(data);
+    else await connect();
   } catch (error) {
-    $("token").value = "";
-    $("login-error").textContent = error.message;
+    if (error.code === "auth.setup_complete")
+      await loadAuthMode().catch(showAuthError);
+    showAuthError(error);
   } finally {
+    $("password").value = "";
+    $("confirm-password").value = "";
     submit.disabled = false;
   }
 });
+$("recover-form").onsubmit = async (event) => {
+  event.preventDefault();
+  $("login-error").textContent = "";
+  if ($("new-password").value !== $("confirm-new-password").value) {
+    $("login-error").textContent = "As senhas precisam ser iguais.";
+    return;
+  }
+  const submit = $("recover-form").querySelector("button");
+  submit.disabled = true;
+  try {
+    const data = await request("/app/recover", {
+      method: "POST",
+      body: {
+        recovery_token: $("recovery-input").value,
+        password: $("new-password").value,
+      },
+    });
+    showRecovery(data);
+  } catch (error) {
+    showAuthError(error);
+  } finally {
+    for (const id of ["recovery-input", "new-password", "confirm-new-password"])
+      $(id).value = "";
+    submit.disabled = false;
+  }
+};
+$("account-recovery").onclick = () =>
+  openEditor(
+    "Gerar novo token de recuperação",
+    () => {
+      const input = field("current-password", "Sua senha atual", "password");
+      input.autocomplete = "current-password";
+      $("editor-fields").append(
+        el("p", "Ao gerar um novo token, o anterior deixa de funcionar."),
+      );
+    },
+    async () => {
+      const data = await request("/app/recovery-token", {
+        method: "POST",
+        body: { password: $("edit-current-password").value },
+      });
+      $("edit-current-password").value = "";
+      showRecovery(data);
+    },
+  );
 $("logout").onclick = async () => {
   try {
     await request("/app/session", { method: "DELETE" });
@@ -1031,7 +1229,14 @@ $("delete-source").onclick = async () => {
     report(error);
   }
 };
-connect().catch(() => {
+connect().catch(async (error) => {
   $("connect").hidden = false;
   $("workspace").hidden = true;
+  if (error.code && error.code !== "auth.unauthenticated") showAuthError(error);
+  try {
+    await loadAuthMode();
+  } catch (failure) {
+    showAuthError(failure);
+    $("auth-retry").hidden = false;
+  }
 });

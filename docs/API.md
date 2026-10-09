@@ -8,6 +8,15 @@ Mutação externa exige
 `Idempotency-Key` (máximo 180 caracteres), único por client. Mesmo payload retorna receipt;
 outro payload sob a mesma chave retorna 409. Não há retries cegos de mutações no servidor.
 
+Contas humanas usam `GET /app/setup` para saber se o cadastro inicial está aberto,
+`POST /app/setup` com username/senha para criar a primeira conta e `POST /app/session`
+para login. Cadastro já inicia sessão e entrega o token de recuperação uma vez.
+`POST /app/recover` recebe token e nova senha, revoga sessões e devolve novo token.
+`POST /app/recovery-token` exige sessão, CSRF e senha atual para rotacionar o token.
+`GET /app/session` informa identidade e CSRF; `DELETE` encerra a sessão.
+Essas entradas exigem JSON/origem válida e têm limites de tentativas compartilhados;
+campos de credenciais são removidos dos erros de validação.
+
 ## Fluxo
 
 O workspace troca a credencial client em `POST /app/session`, consulta identidade/CSRF em

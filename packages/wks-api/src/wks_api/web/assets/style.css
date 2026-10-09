@@ -1055,3 +1055,34 @@ td {
     padding: 0 12px;
   }
 }
+
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 16px 0;
+  font-size: 12px;
+}
+.check-label input {
+  width: 16px;
+  min-height: 16px;
+}
+#recovery-receipt .actions {
+  margin: 16px 0;
+}
+#recovery-receipt p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+#recovery-output {
+  font-family: ui-monospace, monospace;
+}
+#forgot-password,
+#back-login {
+  margin-top: 14px;
+}
+#confirm-password-field small {
+  display: block;
+  color: var(--muted);
+  margin: 7px 0 18px;
+}

@@ -6,21 +6,22 @@ const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
-const token = fs
-  .readFileSync(
-    process.env.WKS_BROWSER_TOKEN_FILE ||
-      path.join(root, ".local/browser-token"),
+const credentials = JSON.parse(
+  fs.readFileSync(
+    process.env.WKS_BROWSER_ACCOUNT_FILE ||
+      path.join(root, ".local/browser-account.json"),
     "utf8",
-  )
-  .trim();
+  ),
+);
 const screenshots = path.join(root, "docs/ui-workspace");
 fs.mkdirSync(screenshots, { recursive: true });
 async function login(page) {
   await page.goto("/app/");
-  await expect(page.getByLabel("Credencial de acesso")).toBeVisible();
+  await expect(page.getByLabel("Username", { exact: true })).toBeVisible();
   await page.evaluate((value) => {
-    document.getElementById("token").value = value;
-  }, token);
+    document.getElementById("username").value = value.username;
+    document.getElementById("password").value = value.password;
+  }, credentials);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.locator("#workspace")).toBeVisible();
   await expect(page.locator(".metric strong").first()).toBeVisible();
@@ -285,7 +286,7 @@ test("mobile layout, real upload, processing and logout", async ({ page }) => {
   ).toBeVisible();
   await page.getByRole("button", { name: "Fechar detalhe" }).click();
   await page.getByRole("button", { name: "Encerrar sessão" }).click();
-  await expect(page.getByLabel("Credencial de acesso")).toBeVisible();
+  await expect(page.getByLabel("Username", { exact: true })).toBeVisible();
   expect((await page.request.get("/v1/namespaces")).status()).toBe(401);
 });
 

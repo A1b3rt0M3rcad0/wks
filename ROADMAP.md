@@ -15,6 +15,8 @@ escopo WKS está em `docs/ACCEPTANCE.md`.
 - Frontend `/app/`: resumo, catálogo, busca, versões, mídia, coleções, upload e layout mobile.
 - Sessões HttpOnly, CSRF/origem, expiração/logout e invalidação após restore.
 - Testes reais de browser, screenshots e instruções de reprodução.
+- Cadastro da primeira conta, username/senha e recuperação com token de uso único.
+- Release SemVer com CI reutilizável, tags imutáveis, GitHub Release e GHCR amd64/arm64.
 
 ## Critérios de encerramento desta atualização
 

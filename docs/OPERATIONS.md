@@ -105,12 +105,19 @@ tráfego. Não reative acesso a dados excluídos por simplesmente restaurar snap
 Tokens de provisionamento e cursor secret ficam no vault/local configuration e são preservados
 separadamente; hashes no dump não recuperam secrets.
 
-Restore remove as sessões de navegador do snapshot. Usuários devem fazer login novamente;
-isso impede reativar cookies revogados entre o backup e a restauração.
+Restore conserva os hashes das contas/senhas/tokens de recuperação e remove as sessões
+de navegador e limites temporários do snapshot. Usuários devem fazer login novamente;
+isso impede reativar cookies revogados entre o backup e a restauração. Reaplique também
+trocas de senha e revogações de tokens posteriores ao snapshot antes de abrir tráfego.
 
 ## Frontend e sessões
 
 O frontend e seus assets fazem parte do pacote `wks-api` e da imagem padrão, em `/app/`.
+Uma instalação sem conta apresenta o cadastro inicial; depois mostra username/senha.
+Não é necessário provisionar um client para entrar no navegador. Salve o token apresentado
+no cadastro: a recuperação exige esse token e uma nova senha, revoga as sessões anteriores
+e entrega outro token. Dentro da conta, pode gerar outro token confirmando a senha atual.
+Clients HTTP/MCP continuam sendo provisionados separadamente por CLI.
 Não há servidor Node em produção. Use HTTPS, `WKS_ENV=production`, cursor secret forte e
 `WKS_WEB_PUBLIC_ORIGIN` com a origem pública exata (sem barra final). Cookies em produção
 são Secure; não se deve tentar login de produção em HTTP. Configure o proxy reverso para
@@ -119,6 +126,11 @@ servir `/app/`, `/v1/` e `/mcp` no mesmo host. Não é necessário habilitar COR
 `WKS_WEB_SESSION_TTL_SECONDS` define 300–86400 segundos (padrão 28800). Sessões expiradas
 são removidas no próximo login. Logout revoga a sessão no banco; desabilitar o client
 invalida todas as suas sessões. O MCP não usa essa autenticação de navegador.
+Login, cadastro, recuperação e rotação usam limites compartilhados no PostgreSQL.
+Configure proxies confiáveis para que o endereço do cliente seja determinado corretamente;
+não confie em headers encaminhados por qualquer origem.
+
+Veja [RELEASING.md](RELEASING.md) para tags, GHCR, instalação e migração 0006.
 
 ## Observabilidade e rollout
 

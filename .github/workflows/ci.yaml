@@ -1,7 +1,28 @@
 name: WKS checks
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_call:
+    inputs:
+      revision:
+        required: false
+        type: string
+        default: ''
+      version:
+        required: false
+        type: string
+        default: ''
+    outputs:
+      artifact_id:
+        value: ${{ jobs.package.outputs.artifact_id }}
+      manifest_sha256:
+        value: ${{ jobs.package.outputs.manifest_sha256 }}
+permissions:
+  contents: read
 jobs:
   test:
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -14,6 +35,8 @@ jobs:
         options: --health-cmd "pg_isready -U wks" --health-interval 2s --health-retries 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision || github.sha }}
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.12.19'
@@ -24,6 +47,7 @@ jobs:
       - run: uv sync --frozen --extra docling --extra asr
       - run: uv run --no-sync python scripts/download_models.py
       - run: uv run --no-sync python scripts/download_models.py --docling --destination .local/models/docling
+      - run: python scripts/version.py
       - run: make lint
         env:
           UV_CACHE_DIR: /home/runner/.cache/uv
@@ -47,18 +71,21 @@ jobs:
           api_pid=$!
           uv run --no-sync python scripts/browser_server.py --worker > .local/browser-worker.log 2>&1 &
           worker_pid=$!
-          trap 'kill "$api_pid" "$worker_pid"' EXIT
+          uv run --no-sync python scripts/browser_server.py --accounts > .local/accounts-browser-api.log 2>&1 &
+          accounts_pid=$!
+          trap 'kill "$api_pid" "$worker_pid" "$accounts_pid"' EXIT
           python - <<'PY'
           import time, urllib.request
-          for attempt in range(60):
-              try:
-                  with urllib.request.urlopen('http://127.0.0.1:8082/health/ready') as response:
-                      if response.status == 200:
-                          break
-              except OSError:
-                  time.sleep(1)
-          else:
-              raise RuntimeError('Browser API did not become ready')
+          for port in (8082, 8083):
+              for attempt in range(60):
+                  try:
+                      with urllib.request.urlopen(f'http://127.0.0.1:{port}/health/ready') as response:
+                          if response.status == 200:
+                              break
+                  except OSError:
+                      time.sleep(1)
+              else:
+                  raise RuntimeError('Browser API did not become ready')
           PY
           npm --prefix tests/web test
       - run: tests/web/node_modules/.bin/prettier --check 'packages/wks-api/src/wks_api/web/assets/*' 'tests/web/*.mjs'
@@ -70,3 +97,54 @@ jobs:
             results.xml
             .local/browser-results.json
             docs/ui-workspace/*.png
+
+  package:
+    needs: test
+    if: inputs.version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      manifest_sha256: ${{ steps.manifest.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.19'
+      - run: uv sync --frozen
+      - name: Build the candidate from the exact tested revision
+        env:
+          WKS_RELEASE_VERSION: ${{ inputs.version }}
+          WKS_RELEASE_REVISION: ${{ inputs.revision }}
+        run: |
+          uv run --no-sync python scripts/package_release.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION"
+          uv run --no-sync python scripts/verify_release.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION"
+          uv venv .local/candidate-env --python 3.12
+          uv pip install --python .local/candidate-env/bin/python --require-hashes -r dist/native-requirements.txt
+          uv pip install --python .local/candidate-env/bin/python --no-deps dist/*.whl
+          .local/candidate-env/bin/python - <<'PY'
+          import json, os
+          from pathlib import Path
+          import wks_api
+          from wks_api.http.app import create_app
+          from wks_api.version import build_info
+          assert Path(wks_api.__file__).resolve().is_relative_to(Path('.local/candidate-env').resolve())
+          assert build_info() == {'version': os.environ['WKS_RELEASE_VERSION'], 'commit': os.environ['WKS_RELEASE_REVISION']}
+          assert create_app().openapi() == json.loads(Path('dist/openapi.json').read_text())
+          print('PASS: installed wheels load the exact candidate API, release version and source revision')
+          PY
+      - id: manifest
+        run: echo "sha256=$(sha256sum dist/release-manifest.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: wks-release-candidate
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

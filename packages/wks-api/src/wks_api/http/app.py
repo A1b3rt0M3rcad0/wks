@@ -26,6 +26,7 @@ from wks_api.contracts.schemas import (
 )
 from wks_api.mcp.server import build_mcp
 from wks_api.server.bootstrap import build
+from wks_api.version import VERSION, build_info
 from wks_api.web import install_workspace
 
 REQUESTS = Counter("wks_http_requests_total", "HTTP outcomes", ["method", "status"])
@@ -43,7 +44,7 @@ def create_app(service=None, engine=None):
         async with mcp.session_manager.run():
             yield
 
-    app = FastAPI(title="Woobe Knowledge Service", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Woobe Knowledge Service", version=VERSION, lifespan=lifespan)
     app.state.service = service
 
     @app.middleware("http")
@@ -62,11 +63,17 @@ def create_app(service=None, engine=None):
                 )
             if (
                 request.url.path.startswith("/v1") and "/uploads/" not in request.url.path
-            ) or request.url.path == "/app/session":
+            ) or request.url.path in {
+                "/app/session",
+                "/app/setup",
+                "/app/recover",
+                "/app/recovery-token",
+            }:
                 # Bound JSON bodies before Pydantic parsing; uploads have separate streaming bounds.
                 limit = (
                     8192
-                    if request.url.path == "/app/session"
+                    if request.url.path
+                    in {"/app/session", "/app/setup", "/app/recover", "/app/recovery-token"}
                     else min(service.settings.upload_max_bytes, 2 * 1024 * 1024)
                 )
                 if int(request.headers.get("content-length", 0)) > limit:
@@ -157,7 +164,7 @@ def create_app(service=None, engine=None):
 
     @app.get("/health/live", tags=["operations"])
     def live():
-        return {"status": "live"}
+        return {"status": "live", **build_info()}
 
     @app.get("/health/ready", tags=["operations"])
     def ready():
@@ -165,7 +172,7 @@ def create_app(service=None, engine=None):
             with service.sessions() as db:
                 migration = db.scalar(text("SELECT version_num FROM alembic_version"))
                 db.execute(text("SELECT to_tsvector('wks_portuguese', 'saúde')"))
-            if migration != "0005" or not service.store.ready():
+            if migration != "0006" or not service.store.ready():
                 raise RuntimeError()
             return {
                 "status": "ready",

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Woobe Knowledge Service",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "paths": {
     "/health/live": {
@@ -2445,6 +2445,56 @@
         }
       }
     },
+    "/app/setup": {
+      "get": {
+        "summary": "Setup State",
+        "operationId": "setup_state_app_setup_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Setup",
+        "operationId": "setup_app_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/app/session": {
       "get": {
         "summary": "Identity",
@@ -2467,7 +2517,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginBody"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Credentials"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LegacyLoginBody"
+                  }
+                ],
+                "title": "Body"
               }
             }
           },
@@ -2503,6 +2561,78 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/recover": {
+      "post": {
+        "summary": "Recover",
+        "operationId": "recover_app_recover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/app/recovery-token": {
+      "post": {
+        "summary": "Rotate",
+        "operationId": "rotate_app_recovery_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2545,6 +2675,29 @@
           "namespace_id"
         ],
         "title": "CollectionBody"
+      },
+      "Credentials": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Credentials"
       },
       "Filters": {
         "properties": {
@@ -2748,7 +2901,7 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "LoginBody": {
+      "LegacyLoginBody": {
         "properties": {
           "token": {
             "type": "string",
@@ -2761,7 +2914,7 @@
         "required": [
           "token"
         ],
-        "title": "LoginBody"
+        "title": "LegacyLoginBody"
       },
       "NamespaceBody": {
         "properties": {
@@ -2791,6 +2944,21 @@
         ],
         "title": "NamespaceBody"
       },
+      "PasswordBody": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "PasswordBody"
+      },
       "ProcessBody": {
         "properties": {
           "source_version_id": {
@@ -2809,6 +2977,28 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ProcessBody"
+      },
+      "RecoveryBody": {
+        "properties": {
+          "recovery_token": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Recovery Token"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 12,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recovery_token",
+          "password"
+        ],
+        "title": "RecoveryBody"
       },
       "RefBody": {
         "properties": {
@@ -2882,6 +3072,29 @@
           "query"
         ],
         "title": "SearchBody"
+      },
+      "SetupBody": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 12,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "SetupBody"
       },
       "SourceBody": {
         "properties": {

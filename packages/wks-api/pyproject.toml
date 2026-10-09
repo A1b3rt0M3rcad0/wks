@@ -1,9 +1,9 @@
 [project]
 name = "wks-api"
-version = "0.1.0"
+version = "0.2.0"
 description = "WKS HTTP/MCP transports, human workspace and standalone runtime"
 requires-python = ">=3.12"
-dependencies = ["wks-core==0.1.0", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "mcp>=1.12,<2", "prometheus-client>=0.21,<1"]
+dependencies = ["wks-core==0.2.0", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "mcp>=1.12,<2", "prometheus-client>=0.21,<1"]
 
 [project.scripts]
 wks = "wks_api.server.cli:main"

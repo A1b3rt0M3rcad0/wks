@@ -1,0 +1,193 @@
+name: Release WKS
+run-name: Release WKS ${{ inputs.version || (github.ref_type == 'tag' && github.ref_name) || github.sha }}
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional exact version for recovery or prerelease; empty calculates automatically
+        required: false
+        type: string
+      revision:
+        description: Optional exact master commit for recovery
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: release-wks
+  cancel-in-progress: false
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      revision: ${{ steps.identity.outputs.revision }}
+      skip: ${{ steps.identity.outputs.skip }}
+    steps:
+      - name: Require the canonical release source
+        env:
+          SOURCE_REF: ${{ github.ref }}
+        run: |
+          case "$SOURCE_REF" in
+            refs/heads/master|refs/tags/v*) ;;
+            *) echo "Release requires master or an explicit version tag" >&2; exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: identity
+        env:
+          WKS_RELEASE_VERSION: ${{ inputs.version }}
+          WKS_RELEASE_REVISION: ${{ inputs.revision || (github.event_name == 'push' && github.sha) || '' }}
+          WKS_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: python scripts/release_identity.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION" --tag "$WKS_RELEASE_TAG" --output "$GITHUB_OUTPUT"
+  validate:
+    needs: identity
+    if: needs.identity.outputs.skip != 'true'
+    uses: ./.github/workflows/ci.yaml
+    with:
+      version: ${{ needs.identity.outputs.version }}
+      revision: ${{ needs.identity.outputs.revision }}
+  image:
+    needs: [identity, validate]
+    if: needs.identity.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      ref: ${{ steps.metadata.outputs.ref }}
+      digest: ${{ steps.existing.outputs.digest || steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.identity.outputs.revision }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.19'
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.validate.outputs.artifact_id }}
+          merge-multiple: true
+          path: dist
+      - name: Verify the candidate received from validation
+        env:
+          WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+          WKS_RELEASE_REVISION: ${{ needs.identity.outputs.revision }}
+          CANDIDATE_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+        run: python scripts/verify_release.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION" --manifest-sha256 "$CANDIDATE_SHA256"
+      - id: metadata
+        env:
+          REPOSITORY: ${{ github.repository }}
+          WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+          WKS_RELEASE_REVISION: ${{ needs.identity.outputs.revision }}
+        run: |
+          echo "ref=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "candidate=ghcr.io/${REPOSITORY,,}:candidate-${WKS_RELEASE_VERSION}-${WKS_RELEASE_REVISION}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - id: existing
+        env:
+          IMAGE_REF: ${{ steps.metadata.outputs.ref }}
+          WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+        run: python scripts/release_registry.py --image "$IMAGE_REF" --version "$WKS_RELEASE_VERSION" --output "$GITHUB_OUTPUT"
+      - id: build
+        if: steps.existing.outputs.reused != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.release
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.metadata.outputs.candidate }}
+          build-args: |
+            WKS_VERSION=${{ needs.identity.outputs.version }}
+            WKS_COMMIT=${{ needs.identity.outputs.revision }}
+            WKS_SOURCE=https://github.com/${{ github.repository }}
+      - name: Verify image identity on both platforms and qualify HTTP and first-account setup
+        env:
+          IMAGE_REF: ${{ steps.metadata.outputs.ref }}
+          IMAGE_DIGEST: ${{ steps.existing.outputs.digest || steps.build.outputs.digest }}
+          WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+          WKS_RELEASE_REVISION: ${{ needs.identity.outputs.revision }}
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json, os, subprocess
+          from sys import path
+          path.insert(0, 'scripts')
+          from release_registry import preflight
+          image = os.environ['IMAGE_REF']
+          digest = os.environ['IMAGE_DIGEST']
+          version, revision = os.environ['WKS_RELEASE_VERSION'], os.environ['WKS_RELEASE_REVISION']
+          preflight(image, version, digest)
+          for platform in ('linux/amd64', 'linux/arm64'):
+              actual = subprocess.check_output(['docker','run','--rm','--platform',platform,image+'@'+digest,'wks','version'], text=True)
+              assert json.loads(actual) == {'version':version,'commit':revision}
+          PY
+          uv run --no-sync python scripts/smoke_release_image.py --image "$IMAGE_REF@$IMAGE_DIGEST" --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION"
+  publish:
+    needs: [identity, validate, image]
+    if: needs.identity.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.identity.outputs.revision }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.validate.outputs.artifact_id }}
+          merge-multiple: true
+          path: dist
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Publish immutable tag, GitHub Release and validated GHCR image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+          WKS_RELEASE_REVISION: ${{ needs.identity.outputs.revision }}
+          CANDIDATE_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
+          IMAGE_REF: ${{ needs.image.outputs.ref }}
+          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+          TAGGED_SOURCE: ${{ github.ref_type == 'tag' }}
+        run: |
+          flags=()
+          if [[ "$TAGGED_SOURCE" == true ]]; then flags+=(--tagged-source); fi
+          python scripts/publish_release.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION" --manifest-sha256 "$CANDIDATE_SHA256" --image "$IMAGE_REF" --digest "$IMAGE_DIGEST" "${flags[@]}"
+          {
+            echo "WKS $WKS_RELEASE_VERSION from $WKS_RELEASE_REVISION"
+            echo "GitHub Release: https://github.com/$GITHUB_REPOSITORY/releases/tag/v$WKS_RELEASE_VERSION"
+            echo "GHCR: $IMAGE_REF:$WKS_RELEASE_VERSION"
+            echo "Open /app/ and create the first account on an empty installation."
+          } >> "$GITHUB_STEP_SUMMARY"

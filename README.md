@@ -24,9 +24,11 @@ leitura, outbox, auditoria sem conteúdo, métricas e backup/restore/reindexaç�
 ## Frontend e organização
 
 O [workspace humano](docs/ui-workspace/README.md) está em `/app/`: biblioteca, busca,
-coleções, versões, leitura e mídia, com o padrão visual do WOS. Abra a URL da API e use
-a credencial do client provisionado. O navegador recebe uma sessão HttpOnly, sem guardar
-a credencial em armazenamento local.
+coleções, versões, leitura e mídia, com o padrão visual do WOS. Na primeira abertura,
+crie a conta com username e senha e salve o token de recuperação apresentado uma vez.
+Depois, entre com username e senha. O navegador recebe uma sessão HttpOnly.
+Se esquecer a senha, use o token em **Recuperar conta**, escolha outra senha e salve o
+novo token. O token anterior deixa de funcionar e as sessões anteriores são encerradas.
 
 O código segue [dois pacotes](packages/README.md): `wks-core` contém domínio, casos de uso,
 portas e adapters; `wks-api` contém HTTP/MCP, autenticação, contratos, servidor e frontend.
@@ -38,12 +40,11 @@ Pré-requisitos: Docker com Compose. Defaults são exclusivos de desenvolvimento
 
 ```sh
 docker compose up --build -d
-docker compose exec api wks provision-client --name local --token-file .local/local-token
 docker compose exec api python -c 'import urllib.request; print(urllib.request.urlopen("http://127.0.0.1:8080/health/ready").status)'
 ```
 
-O token é gravado com permissão `0600`, não impresso. O comando mostra somente o ID do cliente.
-A API escuta em `127.0.0.1:8080` no host. O worker é um processo separado. Em cloud com proxy,
+A API escuta em `127.0.0.1:8080` no host; abra `/app/` para criar a primeira conta.
+Nenhuma conta ou senha humana é pré-configurada. O worker é um processo separado. Em cloud com proxy,
 use [as instruções de build e confiança](docs/OPERATIONS.md) antes do Compose.
 
 ## Desenvolvimento Python
@@ -55,7 +56,6 @@ export UV_CACHE_DIR=/workspace/.cache/uv
 uv sync --frozen --extra docling --extra asr
 docker compose up -d postgres
 uv run --no-sync alembic upgrade head
-uv run --no-sync wks provision-client --name local --token-file .local/local-token
 uv run --no-sync wks api
 # Em outro processo:
 uv run --no-sync wks worker
@@ -83,6 +83,8 @@ sons não verbais; frames amostrados não implicam compreensão integral do víd
 make lint
 make test-unit
 make test
+# Somente para integrações HTTP/MCP e o smoke, não para acessar o frontend:
+uv run --no-sync wks provision-client --name local --token-file .local/local-token
 uv run --no-sync python scripts/smoke.py --token-file .local/local-token
 uv run --no-sync python scripts/benchmark.py
 ```
@@ -93,8 +95,17 @@ como sucesso de transcrição. Docling exige o extra e artefatos para qualifica�
 O benchmark usa base própria descartável, 100 mil segmentos sintéticos e dois tenants;
 não mede qualidade de extração nem desempenho de produção.
 
-Leia [aceitação](docs/ACCEPTANCE.md), [evidências atuais](docs/verification-2026-10-08-wos-alignment.md),
+Leia [aceitação](docs/ACCEPTANCE.md), [evidências atuais](docs/verification-2026-10-09-accounts-release.md),
 [entrega inicial](docs/RELEASE.md), [contratos HTTP](docs/API.md),
 [MCP](docs/MCP.md), [segurança](docs/AUTHORIZATION.md), [processamento](docs/PROCESSING.md)
 e [operação](docs/OPERATIONS.md). O plano original foi preservado em
 [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md); o escopo de entrega executado é WKS.
+
+## Releases
+
+O workflow [Release WKS](.github/workflows/release.yaml) executa em `master`, tags `v*`
+e disparos manuais. Valida o commit exato, empacota `wks-core` e `wks-api`, qualifica a
+imagem e publica a tag, o GitHub Release e a imagem GHCR para amd64/arm64.
+`VERSION` define o piso revisado; commits convencionais calculam os incrementos.
+Tags, arquivos publicados e imagens de versão são imutáveis. Veja [versionamento,
+instalação e retomada de releases](docs/RELEASING.md).

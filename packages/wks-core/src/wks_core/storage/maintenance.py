@@ -60,7 +60,7 @@ def backup(service, destination, pg_container=None):
                 check=True,
             )
         manifest = {
-            "schema_version": "0005",
+            "schema_version": "0006",
             "database_sha256": file_digest(root / "database.dump"),
             "objects": [],
         }
@@ -96,7 +96,7 @@ def restore(service, source, pg_container=None):
     root = Path(source)
     manifest = json.loads((root / "manifest.json").read_text())
     if (
-        manifest["schema_version"] != "0005"
+        manifest["schema_version"] != "0006"
         or file_digest(root / "database.dump") != manifest["database_sha256"]
     ):
         raise RuntimeError("Invalid backup manifest or database checksum")
@@ -133,7 +133,8 @@ def restore(service, source, pg_container=None):
     # Restoring data must not resurrect previously logged-out browser sessions.
     with service.sessions.begin() as db:
         db.execute(text("DELETE FROM web_sessions"))
-    return {"objects_restored": len(manifest["objects"]), "schema_version": "0005"}
+        db.execute(text("DELETE FROM web_auth_attempts"))
+    return {"objects_restored": len(manifest["objects"]), "schema_version": "0006"}
 
 
 def reindex(service):

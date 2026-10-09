@@ -15,7 +15,7 @@ services:
       timeout: 2s
       retries: 30
   migrate:
-    image: wks-api:local
+    image: ${WKS_IMAGE:-wks-api:local}
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -40,7 +40,7 @@ services:
         condition: service_healthy
     command: ["alembic", "upgrade", "head"]
   api:
-    image: wks-api:local
+    image: ${WKS_IMAGE:-wks-api:local}
     environment: *environment
     ports:
       - "127.0.0.1:${WKS_HTTP_PORT:-8080}:8080"
@@ -57,7 +57,7 @@ services:
       retries: 20
     restart: unless-stopped
   worker:
-    image: wks-api:local
+    image: ${WKS_IMAGE:-wks-api:local}
     environment: *environment
     volumes:
       - objects:/app/.local

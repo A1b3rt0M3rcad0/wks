@@ -3491,7 +3491,7 @@ wheels = [
 
 [[package]]
 name = "wks-api"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/wks-api" }
 dependencies = [
     { name = "fastapi" },
@@ -3512,7 +3512,7 @@ requires-dist = [
 
 [[package]]
 name = "wks-core"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/wks-core" }
 dependencies = [
     { name = "alembic" },
@@ -3568,7 +3568,7 @@ provides-extras = ["docling", "asr"]
 
 [[package]]
 name = "woobe-knowledge-service"
-version = "0.1.0"
+version = "0.2.0"
 source = { virtual = "." }
 dependencies = [
     { name = "wks-api" },

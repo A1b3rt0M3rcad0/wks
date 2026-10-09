@@ -1,9 +1,18 @@
 import hashlib
+import json
 import os
+import secrets
 import subprocess
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, delete, text
+from wks_api.authentication.models import Account, AuthAttempt
+from wks_api.authentication.passwords import (
+    password_hash,
+    password_matches,
+    recovery_token,
+    token_hash,
+)
 from wks_api.server.bootstrap import build
 from wks_api.server.cli import provision
 from wks_api.server.config import Settings
@@ -23,6 +32,29 @@ s, e = build(
 )
 provision(s, "Workspace de engenharia", "client", ".local/browser-token")
 p = s.authenticate(Path(".local/browser-token").read_text())
+account_file = Path(".local/browser-account.json")
+if not account_file.exists():
+    fd = os.open(account_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as file:
+        json.dump(
+            {"username": "workspace-engineering", "password": secrets.token_urlsafe(32)}, file
+        )
+credentials = json.loads(account_file.read_text())
+with s.sessions.begin() as db:
+    db.execute(delete(AuthAttempt))
+    account = db.get(Account, p.client_id)
+    if account is None:
+        db.add(
+            Account(
+                client_id=p.client_id,
+                username=credentials["username"],
+                password_hash=password_hash(credentials["password"]),
+                recovery_token_hash=token_hash(recovery_token()),
+            )
+        )
+    elif not password_matches(credentials["password"], account.password_hash):
+        raise RuntimeError("Browser fixture account and private credential file differ")
+
 ns = s.namespace_create(
     p, "seed-context", {"title": "Conhecimento de engenharia", "external_ref": "wks-browser-seed"}
 )["id"]
@@ -82,3 +114,27 @@ while worker.run_once():
     pass
 Path(".local/browser-namespace").write_text(ns)
 print("Browser fixtures ready: private client, isolated database and 26 real sources")
+
+# A separate, disposable database exercises the genuinely empty first-account flow.
+# Never reset the application or the engineering fixture database.
+account_db = "wks_accounts_browser_test"
+with admin.connect() as connection:
+    if not connection.scalar(
+        text("SELECT 1 FROM pg_database WHERE datname=:name"), {"name": account_db}
+    ):
+        connection.execute(text("CREATE DATABASE wks_accounts_browser_test"))
+subprocess.run(
+    [".venv/bin/alembic", "upgrade", "head"],
+    env=os.environ | {"WKS_DATABASE_URL": base + "/" + account_db},
+    check=True,
+)
+account_engine = create_engine(base + "/" + account_db)
+with account_engine.begin() as connection:
+    from wks_core.storage.database import Base
+
+    tables = ",".join('"' + name + '"' for name in Base.metadata.tables)
+    connection.execute(text("TRUNCATE " + tables + " CASCADE"))
+account_engine.dispose()
+admin.dispose()
+e.dispose()
+print("First-account browser database is empty and ready")

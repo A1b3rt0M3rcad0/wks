@@ -10,6 +10,7 @@ from wks_core.storage.database import Client
 from wks_core.worker import Worker
 
 from wks_api.server.bootstrap import build
+from wks_api.version import VERSION, build_info
 
 
 def provision(service, name, role, token_file, audience="wks"):
@@ -45,8 +46,10 @@ def provision(service, name, role, token_file, audience="wks"):
 
 def main():
     parser = argparse.ArgumentParser(prog="wks")
+    parser.add_argument("--version", action="version", version="WKS " + VERSION)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("api")
+    sub.add_parser("version")
     worker = sub.add_parser("worker")
     worker.add_argument("--once", action="store_true")
     sub.add_parser("reconcile")
@@ -62,6 +65,11 @@ def main():
     client.add_argument("--audience", default="wks")
     client.add_argument("--token-file", required=True)
     args = parser.parse_args()
+    if args.command == "version":
+        import json
+
+        print(json.dumps(build_info()))
+        return
     service, engine = build()
     if args.command == "api":
         import uvicorn
