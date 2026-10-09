@@ -13,6 +13,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:8080")
     parser.add_argument("--token-file", required=True)
+    parser.add_argument(
+        "--media", action="store_true", help="Also exercise the isolated media queue"
+    )
     args = parser.parse_args()
     headers = {"Authorization": "Bearer " + Path(args.token_file).read_text().strip()}
     prefix = "smoke-" + str(uuid4())
@@ -70,6 +73,50 @@ def main():
             f"/v1/sources/{receipt['source_id']}", headers={"Idempotency-Key": prefix + "-delete"}
         ).raise_for_status()
         assert client.get(f"/v1/sources/{receipt['source_id']}").status_code == 404
+        if args.media:
+            media = Path("tests/fixtures/speech.wav").read_bytes()
+            audio = post(
+                "/v1/sources",
+                {
+                    "namespace_id": ns["id"],
+                    "kind": "upload",
+                    "title": "Audio queue acceptance",
+                    "upload": {
+                        "filename": "speech.wav",
+                        "declared_media_type": "audio/wav",
+                        "byte_size": len(media),
+                        "checksum_sha256": hashlib.sha256(media).hexdigest(),
+                    },
+                },
+                "audio-source",
+            )
+            client.put(
+                f"/v1/uploads/{audio['upload_id']}/content", content=media
+            ).raise_for_status()
+            queued = post(f"/v1/uploads/{audio['upload_id']}/commit", key="audio-commit")
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                audio_status = client.get(f"/v1/operations/{queued['operation_id']}").json()
+                if audio_status["processing_state"] in {"succeeded", "partial"}:
+                    break
+                if audio_status["processing_state"] == "failed":
+                    raise RuntimeError(audio_status["error_code"])
+                time.sleep(0.5)
+            else:
+                raise RuntimeError("Isolated media queue did not publish")
+            assert audio_status["coverage"]["audio"]["state"] in {"pending", "complete"}
+            assert (
+                client.get(
+                    f"/v1/sources/{audio['source_id']}/versions/{audio['source_version_id']}/original"
+                ).content
+                == media
+            )
+            client.delete(
+                f"/v1/sources/{audio['source_id']}",
+                headers={"Idempotency-Key": prefix + "-audio-delete"},
+            ).raise_for_status()
+            assert client.get(f"/v1/sources/{audio['source_id']}").status_code == 404
+            print("PASS: HTTP audio upload, isolated media queue publication, original and purge")
         print(
             "PASS: readiness, stream upload, SHA, durable processing, lexical search, read, original, purge"
         )

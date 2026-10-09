@@ -22,3 +22,7 @@ dependent on wks-core only; core must not import API or transport frameworks. Fr
 assets live in the API wheel; follow docs/ui-workspace and the WOS reference design.
 Node is test tooling only. Cookie mutations require CSRF and origin validation; MCP remains
 Bearer-only. Run browser contracts when changing user journeys. WOS access is read-only.
+
+Workers live in their own runtime/profile packages. They must never import API or
+transport frameworks. Each profile claims only its persistent queue, including retries
+and expired leases. Keep processor dependencies out of Core/API. See docs/WORKERS.md.

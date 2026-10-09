@@ -94,3 +94,30 @@ def test_api_and_core_have_no_worker_or_decoder_dependencies():
                     (name or "").startswith(("wks_api", "fastapi", "mcp", "uvicorn"))
                     for name in names
                 ), file
+
+
+def test_docling_queue_publishes_from_bounded_worker_without_fallback(env):
+    pytest.importorskip("docling")
+    models = Path(".local/models/docling").resolve()
+    if not (models / "wks-model-manifest.json").exists():
+        pytest.skip("Pinned Docling models are not installed")
+    service = env["s"]
+    service.settings.extraction_profile = "docling"
+    service.settings.docling_artifacts_path = str(models)
+    service.settings.processing_timeout_seconds = 180
+    receipt = upload(env, "tests/fixtures/mixed.pdf", "application/pdf")
+    assert not Worker(service, queues=("native",)).run_once()
+    assert Worker(service, queues=("docling",)).run_once()
+    status = service.status(env["a"], receipt["operation_id"])
+    assert status["processing_state"] in {"succeeded", "partial"}, status
+    representation = service.read(env["a"], status["published_representation_id"])
+    with service.sessions() as db:
+        from wks_core.storage.database import Representation
+
+        published = db.get(Representation, status["published_representation_id"])
+        assert published.producer["name"] == "docling"
+        assert "docling_unavailable_native_fallback_used" not in published.warnings
+    assert any(
+        b["origin_kind"] == "ocr" and "Parallel" in b["text"] for b in representation["blocks"]
+    )
+    assert service.search(env["a"], {"query": "paralelo"})["items"]

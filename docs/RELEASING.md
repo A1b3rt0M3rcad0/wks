@@ -36,7 +36,8 @@ um evento atrasado de master é ignorado se uma origem mais recente já foi rese
 Uma versão existente nunca muda de commit, arquivos ou digest da imagem. Reruns reutilizam
 a identidade e imagem existentes, conferem todos os hashes e completam somente uploads
 faltantes de um draft. Arquivos conflitantes ou release publicado incompleto interrompem
-o processo; não são sobrescritos. Para retomar, dispare o workflow com a mesma versão e SHA.
+o processo; não são sobrescritos. Para retomar, reexecute o run original com a mesma versão e SHA. Para versões anteriores
+à separação dos workers, use o workflow da tag original, não o workflow atual de master.
 O candidato temporário tem tag `candidate-VERSION-SHA`; não é a imagem estável.
 
 Não é preciso cadastrar um PAT: os jobs usam `GITHUB_TOKEN`, com `contents: write` e
@@ -91,3 +92,9 @@ Pare os workers 0.2.0 antes da migração 0007. Ela preenche filas dos jobs exis
 preserva fontes, contas e leases. Suba cada novo worker com a imagem correspondente.
 Backup/restore da versão atual exige schema 0007; não restaure um snapshot 0006 com o
 comando da versão nova. Veja [WORKERS.md](WORKERS.md) para modelos e escala.
+
+O arquivo `docling-requirements.txt` conserva o índice CPU do PyTorch. Ao instalar esses
+requirements diretamente com uv, use `--index-strategy unsafe-best-match --require-hashes`:
+todos os pacotes continuam fixados e seus bytes são verificados pelos hashes do lockfile.
+Os exports de API/nativo/mídia não incluem esse índice. Os Dockerfiles aplicam essa
+configuração somente no Docling.

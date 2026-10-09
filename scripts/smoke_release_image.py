@@ -36,6 +36,9 @@ def main():
         "WKS_HTTP_PORT": "8085",
         "WKS_ENV": "development",
         "WKS_WEB_PUBLIC_ORIGIN": "",
+        "WKS_EXTRACTION_PROFILE": "native",
+        "WKS_ASR_ENABLED": "false",
+        "WKS_VIDEO_ENABLED": "false",
     }
     compose = ["docker", "compose", "-p", "wks-release-smoke"]
     token_file = Path(".local/release-smoke-token")
@@ -145,6 +148,7 @@ def main():
                 "http://127.0.0.1:8085",
                 "--token-file",
                 str(token_file),
+                "--media",
             ],
             check=True,
         )
