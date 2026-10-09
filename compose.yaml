@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: wks
+      POSTGRES_PASSWORD: ${WKS_POSTGRES_PASSWORD:-wks-local}
+      POSTGRES_DB: wks
+    ports:
+      - "127.0.0.1:${WKS_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wks -d wks"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  migrate:
+    image: wks-api:local
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      target: base
+      args:
+        WKS_BUILD_EXTRAS: ${WKS_BUILD_EXTRAS:-}
+    environment: &environment
+      WKS_DATABASE_URL: postgresql+psycopg://wks:${WKS_POSTGRES_PASSWORD:-wks-local}@postgres:5432/wks
+      WKS_STORAGE_PATH: /app/.local/objects
+      WKS_HTTP_HOST: 0.0.0.0
+      WKS_OCR_LANGUAGE: por+eng
+      WKS_ENV: development
+      WKS_ASR_ENABLED: ${WKS_ASR_ENABLED:-false}
+      WKS_ASR_MODEL_PATH: ${WKS_ASR_MODEL_PATH:-}
+      WKS_VIDEO_ENABLED: ${WKS_VIDEO_ENABLED:-false}
+      WKS_WEB_CAPTURE_ENABLED: ${WKS_WEB_CAPTURE_ENABLED:-false}
+      WKS_EXTRACTION_PROFILE: ${WKS_EXTRACTION_PROFILE:-native}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+  api:
+    image: wks-api:local
+    environment: *environment
+    ports:
+      - "127.0.0.1:${WKS_HTTP_PORT:-8080}:8080"
+    volumes:
+      - objects:/app/.local
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["wks", "api"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  worker:
+    image: wks-api:local
+    environment: *environment
+    volumes:
+      - objects:/app/.local
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["wks", "worker"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+volumes:
+  pgdata:
+  objects:

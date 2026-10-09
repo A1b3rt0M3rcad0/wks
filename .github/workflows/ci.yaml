@@ -1,0 +1,39 @@
+name: WKS checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: wks
+          POSTGRES_PASSWORD: wks-local
+          POSTGRES_DB: wks_test
+        ports: ['55432:5432']
+        options: --health-cmd "pg_isready -U wks" --health-interval 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.19'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg tesseract-ocr tesseract-ocr-eng
+      - run: uv sync --frozen --extra docling --extra asr
+      - run: uv run --no-sync python scripts/download_models.py
+      - run: uv run --no-sync python scripts/download_models.py --docling --destination .local/models/docling
+      - run: make lint
+        env:
+          UV_CACHE_DIR: /home/runner/.cache/uv
+      - run: uv run --no-sync pytest -q --junitxml=results.xml
+        env:
+          WKS_PG_TEST_CONTAINER: ${{ job.services.postgres.id }}
+          HF_HUB_OFFLINE: '1'
+          OMP_NUM_THREADS: '2'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: results.xml

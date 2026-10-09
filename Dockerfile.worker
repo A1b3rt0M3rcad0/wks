@@ -1,0 +1,3 @@
+# Workers use the identical package and pinned converter dependencies as the API.
+FROM wks-api:local
+CMD ["wks", "worker"]

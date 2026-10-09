@@ -1,0 +1,13 @@
+{
+  "license": "CC0-1.0; WKS generated documents/images and eSpeak synthesized speech",
+  "files": {
+    "speech.wav": "4fb150104d8e4a8550d18a25a23f4c6b7bbd754ddca4fc5b465460156286f37e",
+    "circuit.docx": "7049f3d17775e24ffe33485a0b527373843c2704f94552f783a36094a518b5d2",
+    "speech.mp4": "c25475ead76a3b1613eb65b57cf363dbab6fb17531734b2bb4490fafd8a96588",
+    "scan.png": "5dd0d7b5bac05a738e6aef6d30e62c5f39cba433b7a29319e12f784afdcfa3b3",
+    "circuit.png": "2f012632217355cc19eda7d5d0c4a81f7c7b12e0ae7201f1cb510244530e58df",
+    "mixed.pdf": "c16edfe1465f230725aa68b8e5ba2d94b482bf022f31e0c390ce1f930a046bca",
+    "circuit.pptx": "6b6f57cf38abb05854427a6e5156e6985cce20a539efbc650d255e79968de0e3",
+    "portuguese.md": "efb0ae0434f2efd2184d010a47652192b3bd8e04f95b16d6eb1156d3dfdabecf"
+  }
+}

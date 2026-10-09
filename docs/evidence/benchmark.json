@@ -1,0 +1,28 @@
+{
+  "corpus": "synthetic lexical segments; extraction is not benchmarked",
+  "segments": 100000,
+  "tenants": 2,
+  "requests": 50,
+  "warmups": 5,
+  "cpu_count": 5,
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "postgres": "17.11 (Debian 17.11-1.pgdg13+2)",
+  "search_ms": {
+    "median": 840.5596814995988,
+    "p95": 1816.01162700008,
+    "min": 410.45314599978155,
+    "max": 2335.8552470008362
+  },
+  "ingestion": {
+    "corpus": "20 short UTF-8 text sources; register through extraction and publication",
+    "transport": "shared application service, not HTTP upload latency",
+    "samples": 20,
+    "median_ms": 991.8497409998963,
+    "p95_ms": 1821.6046580000693,
+    "max_ms": 3395.799750000151
+  },
+  "explain": [
+    "Seq Scan on search_segments  (cost=0.00..6808.00 rows=100000 width=37)",
+    "  Filter: (search_vector @@ '''resistenc'' & ''paralel'''::tsquery)"
+  ]
+}
