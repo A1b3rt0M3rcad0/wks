@@ -68,6 +68,40 @@ def main():
                 ).status_code
                 == 200
             )
+            previous_cookie = client.cookies.get("wks_session")
+            replacement_password = secrets.token_urlsafe(32)
+            recovered = client.post(
+                "/app/recover",
+                json={
+                    "recovery_token": identity["recovery_token"],
+                    "password": replacement_password,
+                },
+            )
+            assert recovered.status_code == 200
+            assert recovered.json()["recovery_token"] != identity["recovery_token"]
+            with httpx.Client(base_url="http://127.0.0.1:8085") as previous:
+                previous.cookies.set("wks_session", previous_cookie)
+                assert previous.get("/app/session").status_code == 401
+            assert (
+                client.post(
+                    "/app/recover",
+                    json={"recovery_token": identity["recovery_token"], "password": password},
+                ).status_code
+                == 401
+            )
+            assert (
+                client.post(
+                    "/app/session", json={"username": "release-smoke", "password": password}
+                ).status_code
+                == 401
+            )
+            assert (
+                client.post(
+                    "/app/session",
+                    json={"username": "release-smoke", "password": replacement_password},
+                ).status_code
+                == 200
+            )
         subprocess.run(
             compose
             + [
@@ -107,7 +141,7 @@ def main():
         )
         assert json.loads(metadata) == {"version": args.version, "commit": args.revision}
         print(
-            "PASS: wheel-based image, version/revision, first account, password login and HTTP/worker smoke"
+            "PASS: wheel-based image, version/revision, first account, password login, single-use recovery, session revocation and HTTP/worker smoke"
         )
     finally:
         # This project and its volumes belong solely to this disposable release smoke.
