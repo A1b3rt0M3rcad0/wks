@@ -14,12 +14,24 @@ import httpx
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--image", required=True)
+    parser.add_argument("--image")
+    parser.add_argument("--images", type=Path)
+    parser.add_argument("--native-image")
+    parser.add_argument("--media-image")
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
     args = parser.parse_args()
+    if args.images:
+        images = {p.stem: json.loads(p.read_text()) for p in args.images.glob("*.json")}
+        args.image = images["api"]["image"] + "@" + images["api"]["digest"]
+        args.native_image = images["native"]["image"] + "@" + images["native"]["digest"]
+        args.media_image = images["media"]["image"] + "@" + images["media"]["digest"]
+    if not all((args.image, args.native_image, args.media_image)):
+        parser.error("Supply the API, native and media images, or --images")
     environment = os.environ | {
         "WKS_IMAGE": args.image,
+        "WKS_NATIVE_WORKER_IMAGE": args.native_image,
+        "WKS_MEDIA_WORKER_IMAGE": args.media_image,
         "WKS_POSTGRES_PORT": "55435",
         "WKS_HTTP_PORT": "8085",
         "WKS_ENV": "development",

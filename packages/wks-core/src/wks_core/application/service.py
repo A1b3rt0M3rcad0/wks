@@ -489,7 +489,7 @@ class Service:
             if u.expires_at <= now():
                 raise Error("upload.expired", "Upload session expired", 410)
             self.quota(db, v.namespace_id, size)
-            from wks_core.storage.processing import detect_mime
+            from wks_core.storage.content import detect_mime
 
             mime = detect_mime(Path(path), v.declared_media_type)
             blob = self.save_blob(db, v.namespace_id, path, mime)
@@ -587,7 +587,10 @@ class Service:
         )
         if existing:
             return existing
+        from wks_core.processing import processing_queue
+
         run = ProcessingRun(
+            queue=processing_queue(v.media_type, config["extraction_profile"]),
             source_version_id=v.id,
             namespace_id=src.namespace_id,
             intent_key=intent,

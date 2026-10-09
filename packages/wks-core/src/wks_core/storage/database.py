@@ -136,6 +136,7 @@ class Upload(Identity, Base):
 
 class ProcessingRun(Identity, Base):
     __tablename__ = "processing_runs"
+    queue: Mapped[str] = mapped_column(String(20), default="native")
     namespace_id: Mapped[str] = mapped_column(String(36), index=True)
     source_version_id: Mapped[str] = mapped_column(String(36))
     status: Mapped[str] = mapped_column(String(30), default="queued", index=True)

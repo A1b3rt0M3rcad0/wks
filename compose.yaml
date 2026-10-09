@@ -20,8 +20,6 @@ services:
       context: .
       dockerfile: Dockerfile.api
       target: base
-      args:
-        WKS_BUILD_EXTRAS: ${WKS_BUILD_EXTRAS:-}
     environment: &environment
       WKS_DATABASE_URL: postgresql+psycopg://wks:${WKS_POSTGRES_PASSWORD:-wks-local}@postgres:5432/wks
       WKS_STORAGE_PATH: /app/.local/objects
@@ -34,6 +32,7 @@ services:
       WKS_ASR_MODEL_PATH: ${WKS_ASR_MODEL_PATH:-}
       WKS_VIDEO_ENABLED: ${WKS_VIDEO_ENABLED:-false}
       WKS_WEB_CAPTURE_ENABLED: ${WKS_WEB_CAPTURE_ENABLED:-false}
+      WKS_DOCLING_ARTIFACTS_PATH: ${WKS_DOCLING_ARTIFACTS_PATH:-}
       WKS_EXTRACTION_PROFILE: ${WKS_EXTRACTION_PROFILE:-native}
     depends_on:
       postgres:
@@ -57,20 +56,68 @@ services:
       retries: 20
     restart: unless-stopped
   worker:
-    image: ${WKS_IMAGE:-wks-api:local}
+    image: ${WKS_NATIVE_WORKER_IMAGE:-wks-worker-native:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+      args:
+        WKS_WORKER_PROFILE: native
     environment: *environment
     volumes:
       - objects:/app/.local
     depends_on:
       migrate:
         condition: service_completed_successfully
-    command: ["wks", "worker"]
+    command: ["wks-worker-native"]
     restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '2'
           memory: 4G
+  worker-media:
+    image: ${WKS_MEDIA_WORKER_IMAGE:-wks-worker-media:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+      args:
+        WKS_WORKER_PROFILE: media
+        WKS_WORKER_EXTRA: ${WKS_MEDIA_WORKER_EXTRA:-}
+    environment: *environment
+    volumes:
+      - objects:/app/.local
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["wks-worker-media"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+  worker-docling:
+    profiles: [docling]
+    image: ${WKS_DOCLING_WORKER_IMAGE:-wks-worker-docling:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+      args:
+        WKS_WORKER_PROFILE: docling
+        WKS_WORKER_EXTRA: --extra models
+    environment: *environment
+    volumes:
+      - objects:/app/.local
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["wks-worker-docling"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 6G
 volumes:
   pgdata:
   objects:

@@ -1,21 +1,32 @@
 # Pacotes WKS
 
-A organização segue a fronteira do WOS: biblioteca reutilizável e serviço independente.
-O código continua Python; o WOS foi consultado somente como referência.
+A organização segue as fronteiras do WOS, consultado somente para leitura. O workspace
+Python contém seis pacotes instaláveis e versionados juntos:
 
-| Pacote | Responsabilidade |
-| --- | --- |
-| `wks-core` | `domain`, `application`, `ports`, `storage`, configuração de processamento e worker |
-| `wks-api` | `http`, `mcp`, `contracts`, `authentication`, `server` e `web/assets` |
+| Pacote | Responsabilidade | Executável |
+| --- | --- | --- |
+| `wks-core` | Domínio, Service, autorização, persistência, fila e identificação de uploads | — |
+| `wks-api` | HTTP/MCP, contas, contratos, frontend e manutenção | `wks api` |
+| `wks-worker` | Claim, heartbeat, fencing, subprocessos limitados e publicação atômica | `wks-worker` |
+| `wks-worker-native` | Texto, PDF, OCR, Office, imagens e HTML | `wks-worker-native` |
+| `wks-worker-docling` | Layout/tabelas de PDF e Office, com fallback nativo explícito | `wks-worker-docling` |
+| `wks-worker-media` | Áudio, transcrição local e frames/transcrição de vídeo | `wks-worker-media` |
 
-`wks-api` depende de `wks-core`. O núcleo não importa o pacote da API, FastAPI, Uvicorn
-ou MCP. A biblioteca pode ser instalada sem os transportes. O domínio permanece sem ORM
-ou frameworks. Os adapters de processamento não precisam conhecer HTTP ou o frontend.
+A API depende somente do Core entre os pacotes WKS. Core não importa API, workers,
+transportes ou decoders. O runtime dos workers depende do Core; os perfis dependem do
+runtime. Docling depende também do nativo para preservar evidência quando o modelo falha.
+Áudio/vídeo não instala o pacote nativo. Nenhum worker instala FastAPI, MCP ou o frontend.
 
-O workspace uv da raiz instala os dois pacotes. O executável `wks` pertence ao pacote API;
-`wks worker` monta o núcleo pelo bootstrap do servidor. Migrações e operação Compose ficam
-na raiz, pois coordenam o deployment e o schema compartilhado. O OpenAPI é gerado em
-`wks-api/openapi.json`; os testes de integração ficam na raiz para verificar a fronteira.
+`uv sync --frozen` na raiz instala o workspace de desenvolvimento; isso não define as
+fronteiras de produção. Para instalar apenas um componente, use `uv sync --frozen
+--no-dev --package wks-api` ou `--package wks-worker-native`, por exemplo. Docling usa o
+extra `models`; mídia usa `asr`. A raiz oferece `--extra docling --extra asr` para os testes.
 
-Os assets são incluídos no wheel da API. Não há build Node na aplicação nem dependência
-em execução do WOS. Node é usado apenas para os testes Playwright e a formatação do frontend.
+Cada executável de perfil aceita somente sua fila. `wks-worker --queues native,media`
+é útil para desenvolvimento quando ambos os pacotes estão instalados; o runtime rejeita
+filas cujo pacote não está instalado antes de assumir qualquer job. `wks worker` e
+`wks reconcile` foram substituídos por `wks-worker` e `wks-worker --reconcile`.
+
+Os assets permanecem no wheel da API. Migrações, Compose e testes de integração ficam
+na raiz, pois coordenam o schema e o deployment. Node é somente ferramenta de testes.
+Veja [operação dos workers](../docs/WORKERS.md) para instalação, filas, modelos e escala.

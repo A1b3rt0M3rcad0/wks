@@ -16,7 +16,7 @@ from wks_api.server.bootstrap import build
 from wks_api.server.cli import provision
 from wks_core.domain.models import new_id
 from wks_core.settings import Settings
-from wks_core.worker import Worker
+from wks_worker.worker import Worker
 
 
 def main():

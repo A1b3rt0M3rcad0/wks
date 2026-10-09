@@ -60,13 +60,14 @@ jobs:
     needs: [identity, validate]
     if: needs.identity.outputs.skip != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
-    outputs:
-      ref: ${{ steps.metadata.outputs.ref }}
-      digest: ${{ steps.existing.outputs.digest || steps.build.outputs.digest }}
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [api, native, docling, media]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,6 +79,18 @@ jobs:
         with:
           version: '0.12.19'
       - run: uv sync --frozen
+      - name: Prepare the models for this processor
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          mkdir -p .local/models
+          if [[ "$COMPONENT" == docling ]]; then
+            uv sync --frozen --extra docling
+            uv run --no-sync python scripts/download_models.py --docling --destination .local/models/docling
+          elif [[ "$COMPONENT" == media ]]; then
+            uv sync --frozen --extra asr
+            uv run --no-sync python scripts/download_models.py
+          fi
       - uses: actions/download-artifact@v4
         with:
           artifact-ids: ${{ needs.validate.outputs.artifact_id }}
@@ -92,11 +105,14 @@ jobs:
       - id: metadata
         env:
           REPOSITORY: ${{ github.repository }}
+          COMPONENT: ${{ matrix.component }}
           WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
           WKS_RELEASE_REVISION: ${{ needs.identity.outputs.revision }}
         run: |
-          echo "ref=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-          echo "candidate=ghcr.io/${REPOSITORY,,}:candidate-${WKS_RELEASE_VERSION}-${WKS_RELEASE_REVISION}" >> "$GITHUB_OUTPUT"
+          image="ghcr.io/${REPOSITORY,,}"
+          if [[ "$COMPONENT" != api ]]; then image="$image-worker-$COMPONENT"; fi
+          echo "ref=$image" >> "$GITHUB_OUTPUT"
+          echo "candidate=$image:candidate-${WKS_RELEASE_VERSION}-${WKS_RELEASE_REVISION}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -115,6 +131,7 @@ jobs:
         with:
           context: .
           file: Dockerfile.release
+          target: ${{ matrix.component }}
           platforms: linux/amd64,linux/arm64
           push: true
           provenance: false
@@ -126,6 +143,7 @@ jobs:
             WKS_SOURCE=https://github.com/${{ github.repository }}
       - name: Verify image identity on both platforms and qualify HTTP and first-account setup
         env:
+          COMPONENT: ${{ matrix.component }}
           IMAGE_REF: ${{ steps.metadata.outputs.ref }}
           IMAGE_DIGEST: ${{ steps.existing.outputs.digest || steps.build.outputs.digest }}
           WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
@@ -136,6 +154,7 @@ jobs:
           from sys import path
           path.insert(0, 'scripts')
           from release_registry import inspect, preflight
+          component = os.environ['COMPONENT']
           image = os.environ['IMAGE_REF']
           digest = os.environ['IMAGE_DIGEST']
           version, revision = os.environ['WKS_RELEASE_VERSION'], os.environ['WKS_RELEASE_REVISION']
@@ -146,12 +165,46 @@ jobs:
               # Pull the immutable child manifest selected from the validated index.
               architecture = platform.split('/')[1]
               child = next(item['digest'] for item in manifest['manifests'] if item['platform']['architecture'] == architecture)
-              actual = subprocess.check_output(['docker','run','--rm','--platform',platform,image+'@'+child,'wks','version'], text=True)
+              command = ['wks','version'] if component == 'api' else ['wks-worker-'+component,'--version']
+              actual = subprocess.check_output(['docker','run','--rm','--platform',platform,image+'@'+child,*command], text=True)
               assert json.loads(actual) == {'version':version,'commit':revision}
+          Path = __import__('pathlib').Path
+          Path('.local/images').mkdir(parents=True, exist_ok=True)
+          Path('.local/images/'+component+'.json').write_text(json.dumps({'component':component,'image':image,'digest':digest}))
           PY
-          uv run --no-sync python scripts/smoke_release_image.py --image "$IMAGE_REF@$IMAGE_DIGEST" --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION"
+          if [[ "$COMPONENT" != api ]]; then
+            uv run --no-sync python scripts/qualify_worker_image.py --image "$IMAGE_REF@$IMAGE_DIGEST" --component "$COMPONENT"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wks-image-${{ matrix.component }}
+          path: .local/images/*.json
+          if-no-files-found: error
+  qualify:
+    needs: [identity, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.identity.outputs.revision }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.19'
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wks-image-*
+          merge-multiple: true
+          path: .local/images
+      - name: Qualify API and independently deployed native and media workers
+        env:
+          WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+          WKS_RELEASE_REVISION: ${{ needs.identity.outputs.revision }}
+        run: |
+          uv run --no-sync python scripts/smoke_release_image.py --images .local/images --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION"
   publish:
-    needs: [identity, validate, image]
+    needs: [identity, validate, image, qualify]
     if: needs.identity.outputs.skip != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -168,6 +221,11 @@ jobs:
           artifact-ids: ${{ needs.validate.outputs.artifact_id }}
           merge-multiple: true
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wks-image-*
+          merge-multiple: true
+          path: .local/images
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -183,16 +241,14 @@ jobs:
           WKS_RELEASE_VERSION: ${{ needs.identity.outputs.version }}
           WKS_RELEASE_REVISION: ${{ needs.identity.outputs.revision }}
           CANDIDATE_SHA256: ${{ needs.validate.outputs.manifest_sha256 }}
-          IMAGE_REF: ${{ needs.image.outputs.ref }}
-          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
           TAGGED_SOURCE: ${{ github.ref_type == 'tag' }}
         run: |
           flags=()
           if [[ "$TAGGED_SOURCE" == true ]]; then flags+=(--tagged-source); fi
-          python scripts/publish_release.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION" --manifest-sha256 "$CANDIDATE_SHA256" --image "$IMAGE_REF" --digest "$IMAGE_DIGEST" "${flags[@]}"
+          python scripts/publish_release.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION" --manifest-sha256 "$CANDIDATE_SHA256" --images .local/images "${flags[@]}"
           {
             echo "WKS $WKS_RELEASE_VERSION from $WKS_RELEASE_REVISION"
             echo "GitHub Release: https://github.com/$GITHUB_REPOSITORY/releases/tag/v$WKS_RELEASE_VERSION"
-            echo "GHCR: $IMAGE_REF:$WKS_RELEASE_VERSION"
+            echo "GHCR API and native/Docling/media worker images: ghcr.io/${GITHUB_REPOSITORY,,}:$WKS_RELEASE_VERSION"
             echo "Open /app/ and create the first account on an empty installation."
           } >> "$GITHUB_STEP_SUMMARY"

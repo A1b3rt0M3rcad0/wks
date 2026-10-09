@@ -11,7 +11,8 @@ escopo WKS está em `docs/ACCEPTANCE.md`.
 - HTTP/MCP pelo mesmo Service, grants, revogação, expurgo, audit/outbox e métricas.
 - Worker com leases/fencing, timeouts, recovery, OCR, Docling, ASR e vídeo sob configuração.
 - Backup coordenado, restore/reindex, storage filesystem/S3 e controles de captura.
-- Pacotes `wks-core` e `wks-api`, com dependência unidirecional, conforme o padrão WOS.
+- Core/API e runtime/perfis de workers em seis pacotes, conforme o padrão WOS.
+- Filas persistentes e imagens separadas para escalar processamento nativo, Docling e mídia.
 - Frontend `/app/`: resumo, catálogo, busca, versões, mídia, coleções, upload e layout mobile.
 - Sessões HttpOnly, CSRF/origem, expiração/logout e invalidação após restore.
 - Testes reais de browser, screenshots e instruções de reprodução.

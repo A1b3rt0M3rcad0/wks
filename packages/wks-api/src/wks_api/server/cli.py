@@ -2,12 +2,10 @@ import argparse
 import hashlib
 import os
 import secrets
-import time
 from pathlib import Path
 
 from sqlalchemy import select, text
 from wks_core.storage.database import Client
-from wks_core.worker import Worker
 
 from wks_api.server.bootstrap import build
 from wks_api.version import VERSION, build_info
@@ -50,9 +48,6 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("api")
     sub.add_parser("version")
-    worker = sub.add_parser("worker")
-    worker.add_argument("--once", action="store_true")
-    sub.add_parser("reconcile")
     sub.add_parser("reindex")
     sub.add_parser("garbage-collect")
     for command in ("backup", "restore"):
@@ -82,22 +77,6 @@ def main():
             port=service.settings.http_port,
             access_log=False,
         )
-    elif args.command == "worker":
-        w = Worker(service)
-        if args.once:
-            w.run_once()
-        else:
-            reconciled_at = 0
-            while True:
-                if time.monotonic() - reconciled_at > 60:
-                    w.reconcile()
-                    reconciled_at = time.monotonic()
-                if not w.run_once():
-                    time.sleep(1)
-    elif args.command == "reconcile":
-        import json
-
-        print(json.dumps(Worker(service).reconcile()))
     elif args.command == "provision-client":
         print(provision(service, args.name, args.role, args.token_file, args.audience))
     elif args.command in {"backup", "restore", "reindex", "garbage-collect"}:

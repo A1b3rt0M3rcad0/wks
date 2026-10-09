@@ -172,7 +172,7 @@ def create_app(service=None, engine=None):
             with service.sessions() as db:
                 migration = db.scalar(text("SELECT version_num FROM alembic_version"))
                 db.execute(text("SELECT to_tsvector('wks_portuguese', 'saúde')"))
-            if migration != "0006" or not service.store.ready():
+            if migration != "0007" or not service.store.ready():
                 raise RuntimeError()
             return {
                 "status": "ready",

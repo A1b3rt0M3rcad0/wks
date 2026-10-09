@@ -4,14 +4,12 @@ from pathlib import Path
 import pytest
 from conftest import process_all, register_text, upload
 from wks_core.domain.models import Error
-from wks_core.storage.processing import (
-    AudioProcessor,
-    DoclingProcessor,
+from wks_core.storage.content import detect_mime, validate_zip
+from wks_worker_docling.processing import DoclingProcessor
+from wks_worker_media.processing import AudioProcessor, VideoProcessor
+from wks_worker_native.processing import (
     ImageProcessor,
     TextProcessor,
-    VideoProcessor,
-    detect_mime,
-    validate_zip,
 )
 
 FIXTURES = Path("tests/fixtures")

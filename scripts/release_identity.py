@@ -22,16 +22,18 @@ def ancestor(older, newer):
 
 def source_floor(revision):
     floor = validate(git("show", revision + ":VERSION"))
-    for file in [
-        "pyproject.toml",
-        "packages/wks-core/pyproject.toml",
-        "packages/wks-api/pyproject.toml",
-    ]:
+    files = ["pyproject.toml"] + [
+        file
+        for file in git("ls-tree", "-r", "--name-only", revision, "packages").splitlines()
+        if re.fullmatch(r"packages/[^/]+/pyproject.toml", file)
+    ]
+    for file in files:
         project = tomllib.loads(git("show", revision + ":" + file))["project"]
         if project["version"] != python_version(floor):
             raise ValueError("Source workspace versions differ")
         if any(
-            dependency.startswith(("wks-api==", "wks-core=="))
+            dependency.startswith("wks-")
+            and "==" in dependency
             and dependency.split("==")[1] != python_version(floor)
             for dependency in project.get("dependencies", [])
         ):

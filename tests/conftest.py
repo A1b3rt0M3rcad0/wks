@@ -11,7 +11,7 @@ from wks_api.server.bootstrap import build
 from wks_api.server.cli import provision
 from wks_api.server.config import Settings
 from wks_core.storage.database import Base
-from wks_core.worker import Worker
+from wks_worker.worker import Worker
 
 
 @pytest.fixture(scope="session")

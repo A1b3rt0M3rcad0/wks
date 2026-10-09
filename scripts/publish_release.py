@@ -26,7 +26,7 @@ def github(path, paginate=False):
     return [item for page in result for item in page] if paginate else result
 
 
-def publish(version, revision, manifest_hash, image, digest, directory, tagged=False):
+def publish(version, revision, manifest_hash, image, digest, directory, tagged=False, workers=None):
     validate(version)
     repository = os.environ["GITHUB_REPOSITORY"]
     manifest = verify(directory, version, revision, manifest_hash)
@@ -69,6 +69,15 @@ def publish(version, revision, manifest_hash, image, digest, directory, tagged=F
                 uploaded.add(asset["name"])
         if not release["draft"] and uploaded != set(files):
             raise ValueError("Published release is incomplete; do not mutate its assets")
+    workers = workers or []
+    if {item["component"] for item in workers} != {"native", "docling", "media"} or len(
+        workers
+    ) != 3:
+        raise ValueError("Exactly one validated image for each worker profile is required")
+    for item in workers:
+        if item["image"] != image + "-worker-" + item["component"]:
+            raise ValueError("Worker image repository differs")
+        preflight(item["image"], version, item["digest"])
     existing_image = preflight(image, version, digest)
     remote = run(
         "git",
@@ -122,7 +131,7 @@ def publish(version, revision, manifest_hash, image, digest, directory, tagged=F
     with tempfile.TemporaryDirectory(prefix="wks-notes-") as temporary:
         notes = Path(temporary) / "notes.md"
         notes.write_text(
-            f"WKS {version}, fonte `{revision}`.\n\nUsername/senha, recuperação por token e workspace humano.\n\n"
+            f"WKS {version}, fonte `{revision}`.\n\nAPI e workers nativo/OCR, Docling e áudio/vídeo em pacotes e imagens independentes.\n\n"
             f"Imagem validada: `{image}@{digest}`.\n\n"
             "Baixe os wheels ou o pacote de fontes e confira SHA256SUMS antes de instalar.\n"
             f"Com Compose, use `WKS_IMAGE={image}:{version} docker compose up -d --no-build`.\n"
@@ -154,6 +163,11 @@ def publish(version, revision, manifest_hash, image, digest, directory, tagged=F
                 "--repo",
                 repository,
             )
+        for item in workers:
+            if not preflight(item["image"], version, item["digest"]):
+                promote(item["image"], version, item["digest"])
+            if latest:
+                promote(item["image"], "latest", item["digest"])
         if not existing_image:
             promote(image, version, digest)
         if latest:
@@ -180,17 +194,26 @@ if __name__ == "__main__":
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--manifest-sha256", required=True)
-    parser.add_argument("--image", required=True)
-    parser.add_argument("--digest", required=True)
+    parser.add_argument("--images", type=Path, required=True)
     parser.add_argument("--directory", type=Path, default=Path("dist"))
     parser.add_argument("--tagged-source", action="store_true")
     args = parser.parse_args()
+    images = [json.loads(p.read_text()) for p in args.images.glob("*.json")]
+    if len(images) != 4 or {item["component"] for item in images} != {
+        "api",
+        "native",
+        "docling",
+        "media",
+    }:
+        raise ValueError("All four validated images are required")
+    api = next(item for item in images if item["component"] == "api")
     publish(
         args.version,
         args.revision,
         args.manifest_sha256,
-        args.image,
-        args.digest,
+        api["image"],
+        api["digest"],
         args.directory,
         args.tagged_source,
+        [item for item in images if item["component"] != "api"],
     )

@@ -13,7 +13,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from sqlalchemy import and_, func, or_, select, text
-
 from wks_core.application.service import digest, file_digest, markdown
 from wks_core.domain.models import Block, Error, ExtractedAsset, ExtractedRepresentation, new_id
 from wks_core.storage.database import (
@@ -30,8 +29,11 @@ from wks_core.storage.database import (
 
 
 class Worker:
-    def __init__(self, service, owner=None):
+    def __init__(self, service, owner=None, queues=None):
+        from wks_worker.capabilities import available_queues, validate_queues
+
         self.service, self.owner = service, owner or new_id()
+        self.queues = validate_queues(queues or available_queues())
 
     def claim(self):
         with self.service.sessions.begin() as db:
@@ -42,7 +44,7 @@ class Worker:
             )
             run = db.scalar(
                 select(ProcessingRun)
-                .where(eligible)
+                .where(eligible, ProcessingRun.queue.in_(self.queues))
                 .order_by(ProcessingRun.created_at)
                 .with_for_update(skip_locked=True)
                 .limit(1)
@@ -62,6 +64,7 @@ class Worker:
                 "token": run.lease_token,
                 "generation": run.lease_generation,
                 "config": run.config,
+                "queue": run.queue,
                 "version_id": run.source_version_id,
                 "attempt": run.attempt,
             }
@@ -287,7 +290,9 @@ class Worker:
         started = time.monotonic()
         state = "succeeded"
         try:
-            if lease["config"].get("docling_artifact_manifest_sha256"):
+            if lease["queue"] == "docling" and lease["config"].get(
+                "docling_artifact_manifest_sha256"
+            ):
                 root = Path(lease["config"]["docling_artifacts_path"])
                 manifest = root / "wks-model-manifest.json"
                 if file_digest(manifest) != lease["config"]["docling_artifact_manifest_sha256"]:
@@ -300,7 +305,7 @@ class Worker:
                         raise Error(
                             "processing.model_changed", "Pinned Docling model integrity failed"
                         )
-            if lease["config"].get("asr_model_sha256"):
+            if lease["queue"] == "media" and lease["config"].get("asr_model_sha256"):
                 model = Path(lease["config"]["asr_model_path"]) / "model.bin"
                 if file_digest(model) != lease["config"]["asr_model_sha256"]:
                     raise Error("processing.model_changed", "Pinned ASR model integrity failed")
@@ -332,7 +337,7 @@ class Worker:
                             [
                                 sys.executable,
                                 "-m",
-                                "wks_core.storage.processing",
+                                "wks_worker.processing",
                                 str(path),
                                 blob.mime,
                                 str(config_path),

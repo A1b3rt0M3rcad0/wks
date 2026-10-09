@@ -17,7 +17,7 @@ from wks_core.storage.database import (
     SourceVersion,
     now,
 )
-from wks_core.worker import Worker
+from wks_worker.worker import Worker
 
 
 def test_A01_tenant_isolation_all_paths(env):

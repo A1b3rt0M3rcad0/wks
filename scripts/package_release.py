@@ -15,6 +15,14 @@ from release_identity import source_floor
 from version import python_version, semver_key, validate
 
 ROOT = Path(__file__).resolve().parent.parent
+PACKAGES = [
+    "wks-core",
+    "wks-api",
+    "wks-worker",
+    "wks-worker-native",
+    "wks-worker-docling",
+    "wks-worker-media",
+]
 
 
 def run(*args, cwd=None, env=None):
@@ -32,18 +40,18 @@ def overlay_lock(lock, version):
     count = 0
     for index in range(1, len(chunks)):
         package = tomllib.loads("[[package]]\n" + chunks[index])["package"][0]
-        if package["name"] in {"wks-core", "wks-api", "woobe-knowledge-service"}:
+        if package["name"] in set(PACKAGES) | {"woobe-knowledge-service"}:
             chunks[index] = chunks[index].replace(
                 f'version = "{package["version"]}"', f'version = "{version}"', 1
             )
             count += 1
     text = "[[package]]\n".join(chunks)
     after = tomllib.loads(text)
-    if count != 3:
-        raise ValueError("Expected exactly three workspace entries in the lockfile")
+    if count != len(PACKAGES) + 1:
+        raise ValueError("Expected all workspace entries in the lockfile")
     for old, new in zip(before["package"], after["package"], strict=True):
         expected = dict(old)
-        if old["name"] in {"wks-core", "wks-api", "woobe-knowledge-service"}:
+        if old["name"] in set(PACKAGES) | {"woobe-knowledge-service"}:
             expected["version"] = version
         if new != expected:
             raise ValueError("Release version overlay changed a dependency or hash")
@@ -84,17 +92,19 @@ def build(version, revision, destination):
         pep_version = python_version(version)
         for relative in [
             "pyproject.toml",
-            "packages/wks-core/pyproject.toml",
-            "packages/wks-api/pyproject.toml",
+            *[f"packages/{name}/pyproject.toml" for name in PACKAGES],
         ]:
             manifest = staging / relative
             text = manifest.read_text()
             previous = tomllib.loads(text)["project"]["version"]
             text = text.replace(f'version = "{previous}"', f'version = "{pep_version}"', 1)
-            for name in ["wks-api", "wks-core"]:
+            for name in PACKAGES:
                 text = text.replace(name + "==" + python_version(floor), name + "==" + pep_version)
             manifest.write_text(text)
         (staging / "packages/wks-api/src/wks_api/_build_info.py").write_text(
+            f'VERSION = "{version}"\nCOMMIT = "{revision}"\n'
+        )
+        (staging / "packages/wks-core/src/wks_core/_build_info.py").write_text(
             f'VERSION = "{version}"\nCOMMIT = "{revision}"\n'
         )
         contract = staging / "packages/wks-api/openapi.json"
@@ -103,27 +113,36 @@ def build(version, revision, destination):
         contract.write_text(json.dumps(api, indent=2, ensure_ascii=False) + "\n")
         overlay_lock(staging / "uv.lock", pep_version)
         run("uv", "lock", "--check", "--offline", cwd=staging, env=environment)
-        run(
-            "uv",
-            "export",
-            "--frozen",
-            "--no-dev",
-            "--no-emit-workspace",
-            "--no-emit-project",
-            "--format",
-            "requirements-txt",
-            "--output-file",
-            str(destination / "native-requirements.txt"),
-            cwd=staging,
-            env=environment,
-        )
-        requirements = destination / "native-requirements.txt"
-        lines = requirements.read_text().splitlines(keepends=True)
-        requirements.write_text(
-            "# Locked native dependencies exported from the reviewed workspace.\n"
-            + "".join(lines[2:])
-        )
-        for package in ["wks-core", "wks-api"]:
+        for component, package, extra in [
+            ("api", "wks-api", None),
+            ("native", "wks-worker-native", None),
+            ("docling", "wks-worker-docling", "models"),
+            ("media", "wks-worker-media", "asr"),
+        ]:
+            requirements = destination / f"{component}-requirements.txt"
+            args = [
+                "uv",
+                "export",
+                "--frozen",
+                "--no-dev",
+                "--package",
+                package,
+                "--no-emit-workspace",
+                "--no-emit-project",
+                "--format",
+                "requirements-txt",
+                "--output-file",
+                str(requirements),
+            ]
+            if extra:
+                args.extend(["--extra", extra])
+            run(*args, cwd=staging, env=environment)
+            lines = requirements.read_text().splitlines(keepends=True)
+            requirements.write_text(
+                f"# Locked {component} dependencies from the reviewed workspace.\n"
+                + "".join(lines[2:])
+            )
+        for package in PACKAGES:
             run(
                 "uv",
                 "build",

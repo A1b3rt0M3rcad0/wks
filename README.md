@@ -30,8 +30,8 @@ Depois, entre com username e senha. O navegador recebe uma sessão HttpOnly.
 Se esquecer a senha, use o token em **Recuperar conta**, escolha outra senha e salve o
 novo token. O token anterior deixa de funcionar e as sessões anteriores são encerradas.
 
-O código segue [dois pacotes](packages/README.md): `wks-core` contém domínio, casos de uso,
-portas e adapters; `wks-api` contém HTTP/MCP, autenticação, contratos, servidor e frontend.
+O código segue [seis pacotes](packages/README.md): Core e API, um runtime de workers e
+perfis separados para processamento nativo/OCR, Docling e áudio/vídeo.
 A API depende do núcleo. O WOS foi consultado somente para referência, sem alterações nele.
 
 ## Rodar com Compose
@@ -58,7 +58,7 @@ docker compose up -d postgres
 uv run --no-sync alembic upgrade head
 uv run --no-sync wks api
 # Em outro processo:
-uv run --no-sync wks worker
+uv run --no-sync wks-worker
 ```
 
 O perfil `native` preserva texto nativo, OCR seletivo, imagens e renderizações das páginas.
@@ -72,8 +72,8 @@ uv run --no-sync python scripts/download_models.py --destination .local/models/a
 
 Os downloads usam revisões fixadas e verificam hashes LFS/git antes de concluir o manifesto.
 Para ativar modalidades, configure `WKS_DOCLING_ARTIFACTS_PATH`, `WKS_ASR_MODEL_PATH`,
-`WKS_ASR_ENABLED`, `WKS_VIDEO_ENABLED` e/ou `WKS_WEB_CAPTURE_ENABLED`. Em Compose, extras
-exigem `WKS_BUILD_EXTRAS="--extra docling --extra asr"` e montagem dos modelos no worker.
+`WKS_ASR_ENABLED`, `WKS_VIDEO_ENABLED` e/ou `WKS_WEB_CAPTURE_ENABLED`. Veja [workers independentes](docs/WORKERS.md) para instalar perfis, montar modelos e
+escalar cada fila separadamente.
 OCR, ASR e descrições visuais têm coberturas separadas. Transcrição não implica análise de
 sons não verbais; frames amostrados não implicam compreensão integral do vídeo.
 
@@ -104,8 +104,8 @@ e [operação](docs/OPERATIONS.md). O plano original foi preservado em
 ## Releases
 
 O workflow [Release WKS](.github/workflows/release.yaml) executa em `master`, tags `v*`
-e disparos manuais. Valida o commit exato, empacota `wks-core` e `wks-api`, qualifica a
-imagem e publica a tag, o GitHub Release e a imagem GHCR para amd64/arm64.
+e disparos manuais. Valida o commit exato, empacota os seis pacotes, qualifica a API e os três perfis de workers e publica a tag,
+o GitHub Release e quatro imagens GHCR para amd64/arm64.
 `VERSION` define o piso revisado; commits convencionais calculam os incrementos.
 Tags, arquivos publicados e imagens de versão são imutáveis. Veja [versionamento,
 instalação e retomada de releases](docs/RELEASING.md).

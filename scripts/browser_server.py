@@ -12,4 +12,5 @@ os.environ["WKS_STORAGE_PATH"] = (
 )
 os.environ["WKS_HTTP_PORT"] = "8083" if account_journey else "8082"
 os.environ["WKS_OCR_LANGUAGE"] = "eng"
-os.execv(".venv/bin/wks", ["wks", "worker" if "--worker" in sys.argv else "api"])
+executable = "wks-worker" if "--worker" in sys.argv else "wks"
+os.execv(".venv/bin/" + executable, [executable] if "--worker" in sys.argv else [executable, "api"])

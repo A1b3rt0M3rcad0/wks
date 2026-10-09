@@ -5,7 +5,7 @@ commit `526d894341449a88b5dbcf0bccf066aa25cb900f`. Só o WKS é modificado.
 
 ## Versão e origem
 
-`VERSION` e os três manifests Python definem o piso revisado, inicialmente `0.2.0`.
+`VERSION` e os manifests Python do workspace definem o piso revisado, atualmente `0.3.0`.
 O workflow calcula a próxima versão usando os commits desde a maior tag reservada:
 `feat:` incrementa minor; `fix:` e outros commits incrementam patch;
 `!` ou `BREAKING CHANGE:` incrementam major, ou minor antes de 1.0.
@@ -25,11 +25,12 @@ um evento atrasado de master é ignorado se uma origem mais recente já foi rese
 
 1. A identidade seleciona uma versão e um commit imutáveis.
 2. O CI reutilizável testa esse commit em PostgreSQL, processamento e navegador.
-3. São gerados os dois wheels, sdists, fontes completas, dependências nativas com hashes,
+3. São gerados os seis wheels, sdists, fontes completas, dependências por componente com hashes,
    OpenAPI, `release-manifest.json` e `SHA256SUMS`. A instalação isolada verifica o contrato.
-4. A imagem GHCR é construída desses wheels para Linux amd64/arm64. O workflow verifica
-   a identidade nas duas plataformas e qualifica HTTP, worker e primeira conta em Compose.
-5. Só então publica a tag, os arquivos no GitHub Release e a imagem de versão. `latest`
+4. As quatro imagens GHCR são construídas desses wheels para Linux amd64/arm64. O workflow verifica
+   a identidade nas duas plataformas e qualifica cada decoder em fixtures reais sem rede,
+   além de HTTP, workers separados e primeira conta em Compose.
+5. Só então publica a tag, os arquivos no GitHub Release e as imagens de versão. `latest`
    acompanha somente a maior versão estável publicada, sem regredir em um rerun antigo.
 
 Uma versão existente nunca muda de commit, arquivos ou digest da imagem. Reruns reutilizam
@@ -48,23 +49,29 @@ Baixe os assets de uma release e confira `sha256sum -c SHA256SUMS` antes de inst
 Extraia o pacote de fontes para obter Compose, migrações, configuração e documentação.
 
 ```sh
-WKS_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks:0.2.0 docker compose up -d --no-build
+export WKS_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks:0.3.0
+export WKS_NATIVE_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-native:0.3.0
+export WKS_MEDIA_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-media:0.3.0
+export WKS_DOCLING_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-docling:0.3.0
+docker compose up -d --no-build
 ```
 
 Para instalação Python, use Python 3.12, PostgreSQL 17, FFmpeg e Tesseract com os idiomas
 necessários, em um ambiente virtual:
 
 ```sh
-uv pip install --require-hashes -r native-requirements.txt
-uv pip install --no-deps wks_core-0.2.0-py3-none-any.whl wks_api-0.2.0-py3-none-any.whl
+uv pip install --require-hashes -r api-requirements.txt
+uv pip install --no-deps wks_core-0.3.0-py3-none-any.whl wks_api-0.3.0-py3-none-any.whl
 alembic upgrade head
 wks api
-# Em outro processo:
-wks worker
+# No ambiente separado do worker nativo:
+uv pip install --require-hashes -r native-requirements.txt
+uv pip install --no-deps wks_core-0.3.0-py3-none-any.whl wks_worker-0.3.0-py3-none-any.whl wks_worker_native-0.3.0-py3-none-any.whl
+wks-worker-native
 ```
 
-A imagem publicada inclui o perfil native. Docling/ASR exigem os extras, modelos verificados
-e configuração descritos em OPERATIONS.md; não estão embutidos nessa imagem.
+A API e cada worker possuem imagens próprias. As imagens de Docling/mídia incluem os
+runtimes; pesos verificados são montados externamente. Veja [WORKERS.md](WORKERS.md).
 Abra `/app/` e crie sua primeira conta; nenhuma credencial humana acompanha a release.
 Em produção, configure HTTPS, `WKS_ENV=production` e `WKS_WEB_PUBLIC_ORIGIN`.
 
@@ -77,3 +84,10 @@ seus próprios contextos; o WKS não presume que um client de integração perte
 Backup/restore conserva os hashes da conta e do token, mas limpa sessões e limites temporários.
 Ao restaurar um snapshot antigo, confira o histórico de revogações: mudanças de senha,
 token ou ACL posteriores ao backup também precisam ser reaplicadas.
+
+## Upgrade para 0.3.0
+
+Pare os workers 0.2.0 antes da migração 0007. Ela preenche filas dos jobs existentes e
+preserva fontes, contas e leases. Suba cada novo worker com a imagem correspondente.
+Backup/restore da versão atual exige schema 0007; não restaure um snapshot 0006 com o
+comando da versão nova. Veja [WORKERS.md](WORKERS.md) para modelos e escala.

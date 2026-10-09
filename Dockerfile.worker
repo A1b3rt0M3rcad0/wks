@@ -1,3 +1,18 @@
-# Workers use the identical package and pinned converter dependencies as the API.
-FROM wks-api:local
-CMD ["wks", "worker"]
+FROM python:3.12-slim-trixie AS base
+ENV PYTHONUNBUFFERED=1 UV_CACHE_DIR=/tmp/uv-cache UV_LINK_MODE=copy
+ARG WKS_WORKER_PROFILE=native
+ARG WKS_WORKER_EXTRA=""
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg tesseract-ocr tesseract-ocr-por tesseract-ocr-eng ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /usr/local/bin/uv
+WORKDIR /app
+COPY --chown=10001:10001 . .
+RUN --mount=type=secret,id=cloud_ca \
+    if [ -s /run/secrets/cloud_ca ]; then export SSL_CERT_FILE=/run/secrets/cloud_ca; fi; \
+    uv sync --system-certs --frozen --no-dev --no-editable --package wks-worker-$WKS_WORKER_PROFILE $WKS_WORKER_EXTRA \
+    && rm -rf /tmp/uv-cache && useradd --create-home --uid 10001 wks \
+    && mkdir -p /app/.local && chown wks:wks /app/.local
+ENV PATH="/app/.venv/bin:$PATH" WKS_WORKER_QUEUES=$WKS_WORKER_PROFILE
+USER wks
+CMD ["wks-worker"]

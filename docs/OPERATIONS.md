@@ -56,7 +56,7 @@ O ambiente precisa permitir huggingface.co e o CDN efetivamente usado pelos peso
 Nunca peça/registre token só porque o Hub emitiu aviso de rate limit. Se o CDN mudar, acrescente
 somente o hostname requerido à política e verifique o acesso antes de repetir o download.
 
-Monte os modelos no worker para Compose, fixe paths no environment e inclua `WKS_BUILD_EXTRAS`.
+Use os pacotes/imagens separados e os mounts de modelos descritos em [WORKERS.md](WORKERS.md).
 Nunca habilite ASR sem modelo local nem anuncie precisão universal do modelo tiny. Docling
 indisponível deixa warning e fallback native; não desaparece texto previamente publicado.
 Captura em uma rede só com proxy necessita gateway de captura com DNS pinning seguro;
@@ -65,7 +65,7 @@ o adapter de socket direto fica restrito a deployments com egress público permi
 ## Recovery, retenção e expurgo
 
 ```sh
-.venv/bin/wks reconcile
+.venv/bin/wks-worker --reconcile
 .venv/bin/wks garbage-collect
 .venv/bin/wks reindex
 ```
@@ -130,7 +130,7 @@ Login, cadastro, recuperação e rotação usam limites compartilhados no Postgr
 Configure proxies confiáveis para que o endereço do cliente seja determinado corretamente;
 não confie em headers encaminhados por qualquer origem.
 
-Veja [RELEASING.md](RELEASING.md) para tags, GHCR, instalação e migração 0006.
+Veja [RELEASING.md](RELEASING.md) para tags, GHCR, instalação e migrações 0006/0007.
 
 ## Observabilidade e rollout
 

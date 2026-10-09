@@ -14,6 +14,6 @@ migrate:
 api:
 	uv run --no-sync wks api
 worker:
-	uv run --no-sync wks worker
+	uv run --no-sync wks-worker
 up:
 	docker compose up --build -d

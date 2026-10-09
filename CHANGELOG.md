@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Runtime e perfis nativo/OCR, Docling e áudio/vídeo em pacotes, executáveis e imagens separados.
+- API/Core sem dependências de decoders ou workers; fila persistente com migração 0007.
+- Claims, retries e recuperação de leases filtrados por fila; escala independente em Compose.
+- Release dos seis wheels e quatro imagens, com dependências por componente e qualificação real.
+
 ## 0.2.0
 
 - Primeira conta criada no navegador, sem conta ou senha humana pré-configurada.

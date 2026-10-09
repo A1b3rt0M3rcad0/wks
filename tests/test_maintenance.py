@@ -150,17 +150,17 @@ def test_cursor_snapshot_survives_new_publications(env):
 
 
 def test_worker_timeout_kills_child_group_and_retries(env):
-    from wks_core.worker import Worker
+    from wks_worker.worker import Worker
 
     r = register_text(env)
     env["s"].settings.processing_timeout_seconds = 1
     from unittest.mock import patch
 
-    with patch("wks_core.worker.subprocess.Popen") as popen:
+    with patch("wks_worker.worker.subprocess.Popen") as popen:
         proc = popen.return_value
         proc.pid = 99999999
         proc.wait.side_effect = [subprocess.TimeoutExpired("test", 1), 0]
-        with patch("wks_core.worker.os.killpg") as kill:
+        with patch("wks_worker.worker.os.killpg") as kill:
             Worker(env["s"]).run_once()
         assert kill.called
     status = env["s"].status(env["a"], r["operation_id"])

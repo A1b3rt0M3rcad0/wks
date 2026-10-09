@@ -16,7 +16,7 @@ from wks_api.authentication.passwords import (
 from wks_api.server.bootstrap import build
 from wks_api.server.cli import provision
 from wks_api.server.config import Settings
-from wks_core.worker import Worker
+from wks_worker.worker import Worker
 
 base = Settings().database_url.rsplit("/", 1)[0]
 url = base + "/wks_browser_test"

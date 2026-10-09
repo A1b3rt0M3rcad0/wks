@@ -7,6 +7,7 @@ import zipfile
 from email.parser import Parser
 from pathlib import Path
 
+from package_release import PACKAGES
 from version import python_version, validate
 
 
@@ -42,8 +43,8 @@ def verify(directory, version, revision, manifest_hash=None):
     if (directory / "SHA256SUMS").read_text() != sums:
         raise ValueError("SHA256SUMS differs from the validated manifest")
     wheels = sorted(directory.glob("*.whl"))
-    if len(wheels) != 2:
-        raise ValueError("Both Core and API wheels are required")
+    if len(wheels) != len(PACKAGES):
+        raise ValueError("All workspace wheels are required")
     pep_version = python_version(version)
     wheel_names = set()
     for wheel in wheels:
@@ -67,8 +68,8 @@ def verify(directory, version, revision, manifest_hash=None):
                 requirements = metadata.get_all("Requires-Dist", [])
                 if f"wks-core=={pep_version}" not in requirements:
                     raise ValueError("API wheel does not depend on the same Core release")
-    if wheel_names != {"wks-api", "wks-core"}:
-        raise ValueError("Candidate requires exactly one Core and one API wheel")
+    if wheel_names != set(PACKAGES):
+        raise ValueError("Candidate requires exactly one wheel per workspace package")
     if json.loads((directory / "openapi.json").read_text())["info"]["version"] != version:
         raise ValueError("OpenAPI release version differs")
     return manifest

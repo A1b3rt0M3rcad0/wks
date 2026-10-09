@@ -32,18 +32,17 @@ def python_version(value):
 
 def check(root=ROOT):
     floor = validate((root / "VERSION").read_text().strip())
-    for relative in [
-        "pyproject.toml",
-        "packages/wks-core/pyproject.toml",
-        "packages/wks-api/pyproject.toml",
-    ]:
-        project = tomllib.loads((root / relative).read_text())["project"]
+    manifests = [root / "pyproject.toml", *sorted((root / "packages").glob("*/pyproject.toml"))]
+    for manifest in manifests:
+        project = tomllib.loads(manifest.read_text())["project"]
         if project["version"] != python_version(floor):
             raise ValueError("Workspace versions differ from VERSION")
         for dependency in project.get("dependencies", []):
-            if dependency.startswith(("wks-core==", "wks-api==")) and dependency.split("==")[
-                1
-            ] != python_version(floor):
+            if (
+                dependency.startswith("wks-")
+                and "==" in dependency
+                and dependency.split("==")[1] != python_version(floor)
+            ):
                 raise ValueError("Workspace dependency differs from VERSION")
     return floor
 

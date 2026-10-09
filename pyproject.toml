@@ -1,13 +1,13 @@
 [project]
 name = "woobe-knowledge-service"
-version = "0.2.0"
+version = "0.3.0"
 description = "WKS workspace: reusable core and standalone API/frontend"
 requires-python = ">=3.12"
-dependencies = ["wks-api==0.2.0"]
+dependencies = ["wks-api==0.3.0", "wks-worker-native==0.3.0", "wks-worker-docling==0.3.0", "wks-worker-media==0.3.0"]
 
 [project.optional-dependencies]
-docling = ["wks-core[docling]"]
-asr = ["wks-core[asr]"]
+docling = ["wks-worker-docling[models]"]
+asr = ["wks-worker-media[asr]"]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1", "reportlab>=4,<5", "moto[s3]>=5,<6"]
@@ -16,11 +16,15 @@ dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1", "reportlab>=
 package = false
 
 [tool.uv.workspace]
-members = ["packages/wks-core", "packages/wks-api"]
+members = ["packages/wks-core", "packages/wks-api", "packages/wks-worker", "packages/wks-worker-native", "packages/wks-worker-docling", "packages/wks-worker-media"]
 
 [tool.uv.sources]
 wks-api = { workspace = true }
 wks-core = { workspace = true }
+wks-worker = { workspace = true }
+wks-worker-native = { workspace = true }
+wks-worker-docling = { workspace = true }
+wks-worker-media = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

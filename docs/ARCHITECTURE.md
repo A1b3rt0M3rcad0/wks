@@ -12,15 +12,17 @@ flowchart LR
   Worker --> Processors[Texto / PDF / Docling / OCR / ASR / FFmpeg]
 ```
 
-O workspace contém dois pacotes, seguindo a organização do WOS:
+O workspace contém seis pacotes, seguindo a organização do WOS:
 
-- `packages/wks-core/src/wks_core`: `domain`, `application`, `ports`, `storage`, settings e worker.
+- `packages/wks-core/src/wks_core`: `domain`, `application`, `ports`, `storage`, settings e roteamento de filas.
 - `packages/wks-api/src/wks_api`: `http`, `mcp`, `contracts`, `authentication`, `server`, `web/assets`.
+- `packages/wks-worker`: runtime de execução, leases, subprocessos e publicação.
+- `packages/wks-worker-native`, `wks-worker-docling`, `wks-worker-media`: decoders independentes.
 
 `domain` contém tipos portáveis, sem frameworks. `application.Service` concentra autorização,
 idempotência e transações. O mapeamento ORM é compartilhado de forma pragmática com essa
 camada; transportes não executam SQL de domínio. `storage` implementa persistência,
-extração, captura e manutenção. `http` e `mcp` validam contratos e invocam o Service;
+captura e manutenção. A extração pertence aos pacotes de workers. `http` e `mcp` validam contratos e invocam o Service;
 `server/bootstrap` seleciona adapters. A API depende do núcleo; o sentido inverso é
 verificado por teste. Migrações continuam na raiz do deployment.
 
@@ -34,6 +36,8 @@ collections, e pointers atuais. A representação publicada é imutável por tri
 namespace mantém geração própria de índice para não revelar atividade de outro tenant.
 Blocks ficam em JSONB canônico; segmentos/asset refs são materializados para busca e entrega.
 
+A fila persistente (`native`, `docling`, `media`) é definida por MIME/política. Cada worker
+filtra sua fila antes do claim, inclusive na recuperação de leases expirados.
 Jobs são adquiridos com `FOR UPDATE SKIP LOCKED`; token e geração de lease são revalidados
 na publicação. Extraction roda fora da API, com deadline, memória/CPU limitadas e processo
 de grupo próprio. Um timeout encerra também os subprocessos de OCR/FFmpeg.

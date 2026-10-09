@@ -7,7 +7,7 @@ from sqlalchemy import select
 from wks_core.domain.models import Error
 from wks_core.storage.database import Source
 from wks_core.storage.enrichment import HTTPMediaEnricher
-from wks_core.worker import Worker
+from wks_worker.worker import Worker
 
 
 def test_development_cursor_key_is_atomic_across_process_starts(env, monkeypatch):

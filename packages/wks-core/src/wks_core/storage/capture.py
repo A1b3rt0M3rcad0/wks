@@ -10,8 +10,8 @@ from urllib.parse import urljoin, urlsplit
 
 from sqlalchemy import select
 from wks_core.domain.models import Error
+from wks_core.storage.content import detect_mime
 from wks_core.storage.database import SourceVersion, now
-from wks_core.storage.processing import detect_mime
 
 
 def destination(uri):
