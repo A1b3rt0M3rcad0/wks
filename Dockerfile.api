@@ -11,7 +11,7 @@ ARG WKS_BUILD_EXTRAS=""
 RUN --mount=type=secret,id=cloud_ca \
     if [ -s /run/secrets/cloud_ca ]; then export SSL_CERT_FILE=/run/secrets/cloud_ca; fi; \
     uv sync --system-certs --frozen --no-dev --no-install-project $WKS_BUILD_EXTRAS
-COPY . .
+COPY --chown=10001:10001 . .
 RUN --mount=type=secret,id=cloud_ca \
     if [ -s /run/secrets/cloud_ca ]; then export SSL_CERT_FILE=/run/secrets/cloud_ca; fi; \
     uv sync --system-certs --frozen --no-dev $WKS_BUILD_EXTRAS && useradd --create-home --uid 10001 wks \
@@ -23,8 +23,6 @@ CMD ["wks", "api"]
 
 FROM base AS test
 USER root
-COPY tests ./tests
-COPY scripts ./scripts
 RUN --mount=type=secret,id=cloud_ca \
     if [ -s /run/secrets/cloud_ca ]; then export SSL_CERT_FILE=/run/secrets/cloud_ca; fi; \
     uv sync --system-certs --frozen --group dev $WKS_BUILD_EXTRAS
