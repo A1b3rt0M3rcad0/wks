@@ -135,13 +135,18 @@ jobs:
           import json, os, subprocess
           from sys import path
           path.insert(0, 'scripts')
-          from release_registry import preflight
+          from release_registry import inspect, preflight
           image = os.environ['IMAGE_REF']
           digest = os.environ['IMAGE_DIGEST']
           version, revision = os.environ['WKS_RELEASE_VERSION'], os.environ['WKS_RELEASE_REVISION']
           preflight(image, version, digest)
+          manifest = inspect(image+'@'+digest)
           for platform in ('linux/amd64', 'linux/arm64'):
-              actual = subprocess.check_output(['docker','run','--rm','--platform',platform,image+'@'+digest,'wks','version'], text=True)
+              # Classic Docker cannot store both architectures under one index digest.
+              # Pull the immutable child manifest selected from the validated index.
+              architecture = platform.split('/')[1]
+              child = next(item['digest'] for item in manifest['manifests'] if item['platform']['architecture'] == architecture)
+              actual = subprocess.check_output(['docker','run','--rm','--platform',platform,image+'@'+child,'wks','version'], text=True)
               assert json.loads(actual) == {'version':version,'commit':revision}
           PY
           uv run --no-sync python scripts/smoke_release_image.py --image "$IMAGE_REF@$IMAGE_DIGEST" --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION"

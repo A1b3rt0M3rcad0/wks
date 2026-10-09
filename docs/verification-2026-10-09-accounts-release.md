@@ -75,6 +75,13 @@ invalida cookies anteriores sem apagar fontes, versões ou credenciais de integr
 
 ## Publicação e limites da evidência
 
+No commit `03da0d241da72ee582d160866ec63559ff95fa1b`, o CI remoto registrou **101 testes**,
+zero falhas/erros/skips, em **80,46 s**, e cinco jornadas Chromium em **26,76 s**.
+O candidato baixado de Actions teve checksums idênticos ao candidato local.
+A build multiarch concluiu, mas o Docker clássico do runner recusou carregar amd64 e
+arm64 pelo mesmo digest do índice. O teste agora seleciona o digest filho imutável de
+cada plataforma no índice validado, preservando o digest do índice na publicação.
+
 O [workflow](../.github/workflows/release.yaml) qualifica novamente o commit exato recebido
 por GitHub Actions antes de publicar. O candidato final e seus checksums são verificados
 independentemente. A execução local qualifica **amd64**; a verificação **amd64/arm64** e
