@@ -1,0 +1,50 @@
+{
+  "application_commit": "59610a2c3e0c36da775e6a6d5709b4665e604c7e",
+  "image": "sha256:82aac667561e2272b6afd499573e63bbf61b52cfa112e49edf9698f0c002e763",
+  "user_id": "10001",
+  "schema": "0005",
+  "application_assets_migrations_sha256": "332087159bb92944326c1a51b00387e3fadeb01628ceb81ae9e3d44bf5117428",
+  "services": [
+    {
+      "name": "api",
+      "state": "running",
+      "health": "healthy",
+      "exit_code": 0
+    },
+    {
+      "name": "migrate",
+      "state": "exited",
+      "health": "",
+      "exit_code": 0
+    },
+    {
+      "name": "postgres",
+      "state": "running",
+      "health": "healthy",
+      "exit_code": 0
+    },
+    {
+      "name": "worker",
+      "state": "running",
+      "health": "",
+      "exit_code": 0
+    }
+  ],
+  "http_smoke": "passed: streaming upload, checksum, worker publication, search, read, original and purge",
+  "workspace": "passed: bundled assets match checkout, CSP, cookie login, CSRF denial, logout replay denied",
+  "mcp": {
+    "protocol": "2025-11-25",
+    "tools": [
+      "get_processing_status",
+      "list_sources",
+      "outline",
+      "read",
+      "read_asset",
+      "search"
+    ],
+    "search": "passed"
+  },
+  "profile": "native/OCR; optional Docling/ASR models qualified on host Python",
+  "production_deployed": false,
+  "chromium_on_compose": "passed: actual login, server summary, no page errors and logout denied subsequent catalog access"
+}

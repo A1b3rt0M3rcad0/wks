@@ -93,7 +93,8 @@ como sucesso de transcrição. Docling exige o extra e artefatos para qualifica�
 O benchmark usa base própria descartável, 100 mil segmentos sintéticos e dois tenants;
 não mede qualidade de extração nem desempenho de produção.
 
-Leia [aceitação](docs/ACCEPTANCE.md), [evidências](docs/RELEASE.md), [contratos HTTP](docs/API.md),
+Leia [aceitação](docs/ACCEPTANCE.md), [evidências atuais](docs/verification-2026-10-08-wos-alignment.md),
+[entrega inicial](docs/RELEASE.md), [contratos HTTP](docs/API.md),
 [MCP](docs/MCP.md), [segurança](docs/AUTHORIZATION.md), [processamento](docs/PROCESSING.md)
 e [operação](docs/OPERATIONS.md). O plano original foi preservado em
 [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md); o escopo de entrega executado é WKS.

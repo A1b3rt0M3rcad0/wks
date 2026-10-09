@@ -1,4 +1,9 @@
-# Entrega WKS
+# Entrega WKS — verificação inicial
+
+A atualização da organização e do frontend conforme o WOS está registrada em
+[verificação de 2026-10-08](verification-2026-10-08-wos-alignment.md), com 76 testes
+e quatro jornadas de navegador. Este documento preserva os resultados e commits
+da entrega inicial; o schema atual e o frontend estão no registro mais recente.
 
 Implementação independente do WKS, no escopo confirmado pelo usuário. Nenhuma alteração
 foi feita nos repositórios Lipo/Woobe. O documento original está em `IMPLEMENTATION_PLAN.md`;
