@@ -125,6 +125,7 @@ def build(version, revision, destination):
                 "export",
                 "--frozen",
                 "--no-dev",
+                "--emit-index-url",
                 "--package",
                 package,
                 "--no-emit-workspace",

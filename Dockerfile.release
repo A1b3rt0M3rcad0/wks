@@ -46,7 +46,7 @@ COPY dist/docling-requirements.txt /tmp/requirements.txt
 COPY dist/wks_worker_native-*.whl dist/wks_worker_docling-*.whl /tmp/wheels/
 RUN --mount=type=secret,id=cloud_ca \
     if [ -s /run/secrets/cloud_ca ]; then export SSL_CERT_FILE=/run/secrets/cloud_ca; fi; \
-    uv pip install --system --system-certs --require-hashes -r /tmp/requirements.txt \
+    uv pip install --system --system-certs --index-strategy unsafe-best-match --require-hashes -r /tmp/requirements.txt \
     && uv pip install --system --system-certs --no-deps /tmp/wheels/*.whl && rm -rf /tmp/uv-cache /tmp/wheels
 ENV HF_HUB_OFFLINE=1 OMP_NUM_THREADS=2
 USER wks

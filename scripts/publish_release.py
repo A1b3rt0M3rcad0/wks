@@ -134,7 +134,17 @@ def publish(version, revision, manifest_hash, image, digest, directory, tagged=F
             f"WKS {version}, fonte `{revision}`.\n\nAPI e workers nativo/OCR, Docling e áudio/vídeo em pacotes e imagens independentes.\n\n"
             f"Imagem validada: `{image}@{digest}`.\n\n"
             "Baixe os wheels ou o pacote de fontes e confira SHA256SUMS antes de instalar.\n"
-            f"Com Compose, use `WKS_IMAGE={image}:{version} docker compose up -d --no-build`.\n"
+            "Com Compose, selecione as imagens de todos os componentes:\n\n```sh\n"
+            f"export WKS_IMAGE={image}:{version}\n"
+            f"export WKS_NATIVE_WORKER_IMAGE={image}-worker-native:{version}\n"
+            f"export WKS_DOCLING_WORKER_IMAGE={image}-worker-docling:{version}\n"
+            f"export WKS_MEDIA_WORKER_IMAGE={image}-worker-media:{version}\n"
+            "docker compose up -d --no-build\n```\n\n"
+            + "\n".join(
+                f"Worker {item['component']}: `{item['image']}@{item['digest']}`."
+                for item in workers
+            )
+            + "\n\n"
             "O frontend está em `/app/`; a primeira abertura guia a criação da conta.\n"
         )
         if release is None:

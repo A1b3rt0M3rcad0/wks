@@ -168,6 +168,9 @@ jobs:
               command = ['wks','version'] if component == 'api' else ['wks-worker-'+component,'--version']
               actual = subprocess.check_output(['docker','run','--rm','--platform',platform,image+'@'+child,*command], text=True)
               assert json.loads(actual) == {'version':version,'commit':revision}
+              if component == 'api':
+                  subprocess.run(['docker','run','--rm','--platform',platform,image+'@'+child,'python','-c',
+                      "import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ('wks_worker','PIL','docling','faster_whisper'))"], check=True)
           Path = __import__('pathlib').Path
           Path('.local/images').mkdir(parents=True, exist_ok=True)
           Path('.local/images/'+component+'.json').write_text(json.dumps({'component':component,'image':image,'digest':digest}))

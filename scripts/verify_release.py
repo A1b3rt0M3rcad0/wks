@@ -59,6 +59,19 @@ def verify(directory, version, revision, manifest_hash=None):
             wheel_names.add(metadata["Name"])
             if metadata["Version"] != pep_version:
                 raise ValueError("Wheel version differs")
+            requirements = metadata.get_all("Requires-Dist", [])
+            for requirement in requirements:
+                for package in PACKAGES:
+                    if (
+                        requirement.startswith(package + "==")
+                        and requirement.split("==")[1].split(";")[0].strip() != pep_version
+                    ):
+                        raise ValueError("Workspace wheel dependency version differs")
+            if metadata["Name"] in {"wks-api", "wks-core"}:
+                module = metadata["Name"].replace("-", "_")
+                stamp = f'VERSION = "{version}"\nCOMMIT = "{revision}"\n'
+                if archive.read(module + "/_build_info.py").decode() != stamp:
+                    raise ValueError("Wheel source identity differs")
             if metadata["Name"] == "wks-api":
                 stamp = f'VERSION = "{version}"\nCOMMIT = "{revision}"\n'
                 if archive.read("wks_api/_build_info.py").decode() != stamp:
