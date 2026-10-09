@@ -1,0 +1,45 @@
+{
+  "recorded_at": "2026-10-09T01:33:01.964699+00:00",
+  "packaging_commit": "a545e968b88ec9f89638d5aa0736bc574afeebe7",
+  "image_id": "sha256:bcfcfdc4be67a49f76a0c4c977de68ea87e84a16b944a687cacc49d71894a269",
+  "source_sha256": "8847bce3c7e128026d470d44967ccec5d6bca0a2c60d6f0596e7c9b481111060",
+  "container_source_matches_checkout": true,
+  "compose_project": "wks-delivery",
+  "base_url": "http://127.0.0.1:8081",
+  "postgres_host_port": 55433,
+  "profile": "native/OCR, non-root image, API and worker separate",
+  "services": {
+    "postgres": "running",
+    "migrate": "exited",
+    "api": "running",
+    "worker": "running"
+  },
+  "migration_exit_code": 0,
+  "migration_head": "0004",
+  "http_smoke": {
+    "status": "passed",
+    "checks": [
+      "readiness",
+      "stream upload",
+      "SHA-256",
+      "durable worker processing",
+      "lexical search",
+      "read blocks",
+      "original bytes",
+      "purge"
+    ]
+  },
+  "mcp_smoke": {
+    "protocol": "2025-11-25",
+    "tool_names": [
+      "get_processing_status",
+      "list_sources",
+      "outline",
+      "read",
+      "read_asset",
+      "search"
+    ],
+    "search": "passed"
+  },
+  "publication": "local cloud runtime; no GitHub push or production deployment"
+}

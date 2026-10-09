@@ -24,5 +24,6 @@
   "explain": [
     "Seq Scan on search_segments  (cost=0.00..6808.00 rows=100000 width=37)",
     "  Filter: (search_vector @@ '''resistenc'' & ''paralel'''::tsquery)"
-  ]
+  ],
+  "measurement_context": "Sequential requests on a shared cloud host; Docling tests and a Docker build ran concurrently. Not a production SLO."
 }
