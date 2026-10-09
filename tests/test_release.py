@@ -1,8 +1,10 @@
 """Release identity gates exercised against real commits and immutable tags."""
 
 import importlib.util
+import json
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -129,3 +131,34 @@ def test_new_explicit_version_cannot_go_backwards(repository):
     revision = repository("fix: follow-up")
     with pytest.raises(ValueError, match="advance reserved"):
         identity.select("0.2.1", revision)
+
+
+def test_real_candidate_survives_actions_upload_download_without_hidden_files(
+    tmp_path, monkeypatch
+):
+    builder = module("package_release")
+    verifier = module("verify_release")
+    clone = tmp_path / "source"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--shared", str(SCRIPTS.parent), str(clone)], check=True
+    )
+    monkeypatch.chdir(clone)
+    monkeypatch.setattr(builder, "ROOT", clone)
+    revision = identity.git("rev-parse", "HEAD")
+    version = identity.source_floor(revision)
+    candidate = tmp_path / "candidate"
+    builder.build(version, revision, candidate)
+    # Match upload-artifact's default policy, then validate the downloaded files.
+    archived = tmp_path / "candidate.zip"
+    with zipfile.ZipFile(archived, "w", zipfile.ZIP_DEFLATED) as stream:
+        for path in candidate.iterdir():
+            if not path.name.startswith("."):
+                stream.write(path, path.name)
+    downloaded = tmp_path / "downloaded"
+    with zipfile.ZipFile(archived) as stream:
+        stream.extractall(downloaded)
+    manifest = verifier.verify(
+        downloaded, version, revision, verifier.file_hash(candidate / "release-manifest.json")
+    )
+    assert manifest == json.loads((candidate / "release-manifest.json").read_text())
+    assert not any(name.startswith(".") for name in manifest["files"])

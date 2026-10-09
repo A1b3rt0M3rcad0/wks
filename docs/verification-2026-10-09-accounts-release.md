@@ -9,10 +9,10 @@ Esta atualização modifica somente WKS. WOS e woobe-cli foram referências de l
 
 - Suíte completa: **89 passed**, zero falhas/erros/skips, em **362,42 s**. Inclui
   processamento Docling/ASR com modelos locais verificados e 13 casos da nova autenticação.
-- Verificação adicional: **15 passed**, zero falhas/erros/skips, em **26,52 s**:
-  11 testes de identidade/versionamento com commits e tags Git reais e quatro testes de
+- Verificação adicional: **16 passed**, zero falhas/erros/skips, em **38,53 s**:
+  12 testes de identidade/versionamento e transporte com commits e tags Git reais e quatro testes de
   manutenção, incluindo restore com conta/senha/token e limpeza de sessões/limites.
-- São **100 casos distintos** de backend/release; os quatro de manutenção foram reexecutados.
+- São **101 casos distintos** de backend/release; os quatro de manutenção foram reexecutados.
 - Chromium: **5 jornadas passaram** em **55,38 s**, zero falhas/skips/retries. As quatro
   jornadas do workspace usam username/senha; a quinta parte de um banco sem conta e
   percorre cadastro, download do token, login incorreto/correto, recuperação sem username,
@@ -38,6 +38,10 @@ incluindo wheels, sdists, pacote de fontes, dependências nativas, contrato e ma
 Manifesto desse candidato de qualificação:
 `c2068f463963fa11402cfdd0f9b0c8e44338ce22be092dac819f9a8376ead001`.
 O candidato final é empacotado do commit final, com a identidade desse commit.
+O primeiro envio remoto detectou que `uv build` gera um `.gitignore` na saída, omitido
+pelo upload de Actions. A conferência bloqueou a publicação antes de criar qualquer tag.
+O empacotador agora remove esse arquivo antes do manifesto; um teste constrói os pacotes
+reais, simula o ZIP de Actions sem arquivos ocultos e verifica o candidato baixado completo.
 
 Os wheels foram instalados em um ambiente virtual independente, sem importação editable.
 Foram conferidos o caminho do pacote, versão/commit e **todo** o OpenAPI. Os 34 arquivos
@@ -60,7 +64,11 @@ recuperação de uso único, revogação da sessão anterior, rejeição da senh
 com a nova. Em seguida, usa uma integração independente para upload streaming, SHA,
 processamento no worker, FTS, leitura, original idêntico e expurgo.
 
-A instalação de desenvolvimento preserva os volumes existentes e começa sem conta humana.
+A imagem final local foi reconstruída com o commit `11cb1628eeeb022e3ee6920572162e379493dc41`,
+ID `sha256:3ba6831397de2d1ba3c082fbd03e19cc91846c5140e049aa5bdc0d6b5c389a29`.
+A instalação de desenvolvimento foi migrada para 0006, ficou saudável e passou novamente
+no smoke HTTP/worker. Preserva os volumes existentes e começa sem conta humana.
+A correção posterior afeta somente empacotamento/testes/evidências; mantém o runtime qualificado.
 O cadastro acontece em `/app/`. Clients de integração continuam separados.
 Migrações anteriores não foram alteradas; 0006 adiciona as tabelas de autenticação e
 invalida cookies anteriores sem apagar fontes, versões ou credenciais de integração.

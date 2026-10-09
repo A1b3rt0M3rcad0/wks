@@ -17,8 +17,8 @@ from version import python_version, semver_key, validate
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def run(*args, cwd=ROOT, env=None):
-    subprocess.run(args, cwd=cwd, env=env, check=True)
+def run(*args, cwd=None, env=None):
+    subprocess.run(args, cwd=cwd or ROOT, env=env, check=True)
 
 
 def file_hash(path):
@@ -150,6 +150,9 @@ def build(version, revision, destination):
                 with tarfile.open(fileobj=zipped, mode="w") as source:
                     for path in sorted(staging.iterdir()):
                         source.add(path, arcname="wks/" + path.name, filter=normalize)
+    # uv build creates this local safety file. Actions omits hidden files, and it is
+    # not a release asset; remove it before constructing the complete manifest.
+    (destination / ".gitignore").unlink(missing_ok=True)
     files = {path.name: file_hash(path) for path in sorted(destination.iterdir())}
     manifest = {"version": version, "commit": revision, "source_floor": floor, "files": files}
     (destination / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
