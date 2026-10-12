@@ -160,7 +160,7 @@ def test_cli_real_auth_create_read_export_and_declarative_sync(env, server, cli,
     assert tested["passed"] == 1 and tested["failed"] == 0 and tested["isolated"]
     import hashlib
 
-    original = b"Resumable CLI original.\n" * 10000
+    original = b"Resumable CLI original. " * 10000
     upload_file = root / "large.txt"
     upload_file.write_bytes(original)
     prepared = env["s"].register(
