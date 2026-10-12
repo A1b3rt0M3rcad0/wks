@@ -38,7 +38,7 @@ def main():
         [
             "npm",
             "publish",
-            str(args.tarball),
+            str(args.tarball.resolve()),
             "--access",
             "public",
             "--tag",

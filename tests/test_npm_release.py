@@ -181,3 +181,24 @@ def test_workflow_resolves_only_the_immutable_release_source(tmp_path, event, ma
     else:
         assert result.returncode != 0
         assert not output.exists()
+
+
+def test_relative_tarball_is_published_as_a_local_absolute_path(publish, monkeypatch):
+    tarball, _, calls = publish
+    monkeypatch.chdir(tarball.parent)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["publish_npm", "--version", "1.1.0", "--channel", "next", "--tarball", tarball.name],
+    )
+
+    def missing(*args, **kwargs):
+        raise urllib.error.HTTPError(
+            "https://registry.npmjs.org/wksctl/1.1.0", 404, "missing", None, None
+        )
+
+    monkeypatch.setattr(publisher.urllib.request, "urlopen", missing)
+    publisher.main()
+    command = calls[0][0][0]
+    assert command[2] == str(tarball.resolve())
+    assert command[-3:] == ["--tag", "next", "--provenance"]
