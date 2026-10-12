@@ -191,6 +191,28 @@ def test_backup_replays_deletions_grant_revocations_and_account_recovery(env):
     registered = register_text(env)
     process_all(env)
     delegate = delegated(env, ["source:read"])
+    import hashlib
+
+    unfinished = env["s"].register(
+        env["a"],
+        "pending-backup-upload",
+        {
+            "namespace_id": env["ns_a"],
+            "kind": "upload",
+            "title": "Uncommitted transfer",
+            "upload": {
+                "filename": "pending.bin",
+                "declared_media_type": "application/octet-stream",
+                "byte_size": 131072,
+                "checksum_sha256": hashlib.sha256(b"X" * 131072).hexdigest(),
+            },
+        },
+    )
+    part_file = env["tmp"] / "pending-part"
+    part_file.write_bytes(b"X" * 65536)
+    env["s"].receive_part(
+        env["a"], unfinished["upload_id"], part_file, 0, hashlib.sha256(b"X" * 65536).hexdigest()
+    )
     destination = env["tmp"] / "privacy-backup"
     container = os.environ.get("WKS_PG_TEST_CONTAINER", "wks-postgres")
     backup(env["s"], destination, container)
@@ -216,6 +238,8 @@ def test_backup_replays_deletions_grant_revocations_and_account_recovery(env):
     try:
         restore(restored, destination, container)
         owner = restored.authenticate(env["a_token"])
+        expired = restored.upload_status(owner, unfinished["upload_id"])
+        assert expired["status"] == "expired" and expired["offset"] == 0
         with pytest.raises(Error):
             restored.source_get(owner, registered["source_id"])
         with pytest.raises(Error):
