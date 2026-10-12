@@ -2,6 +2,14 @@ name: Publish CLI to npm
 on:
   push:
     tags: ['v*']
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      NPM_TOKEN:
+        required: true
   workflow_dispatch:
     inputs:
       tag:
@@ -91,6 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -107,5 +116,5 @@ jobs:
         shell: bash
         run: |
           test -n "$NODE_AUTH_TOKEN" || { echo 'Repository secret NPM_TOKEN is required'; exit 1; }
-          npm publish ./npm-tarball/*.tgz --access public --tag "$CHANNEL"
+          python scripts/publish_npm.py --version "$VERSION" --channel "$CHANNEL" --tarball ./npm-tarball/*.tgz
           echo "Published wksctl@$VERSION ($CHANNEL): https://www.npmjs.com/package/wksctl" >> "$GITHUB_STEP_SUMMARY"
