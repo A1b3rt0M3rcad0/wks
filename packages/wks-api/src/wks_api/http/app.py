@@ -154,8 +154,14 @@ def create_app(service=None, engine=None):
                 "Cache-Control": "no-store",
             }
         )
-        REQUESTS.labels(request.method, response.status_code).inc()
-        LATENCY.labels(request.method).observe(time.monotonic() - started)
+        metric_method = (
+            request.method
+            if request.method
+            in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "CONNECT", "TRACE"}
+            else "OTHER"
+        )
+        REQUESTS.labels(metric_method, response.status_code).inc()
+        LATENCY.labels(metric_method).observe(time.monotonic() - started)
         return response
 
     @app.exception_handler(Error)

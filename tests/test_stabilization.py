@@ -293,3 +293,20 @@ def test_container_deletion_requires_exact_impact_and_preserves_source_bytes(env
         s.container_delete(
             env["a"], "nonempty", "namespace", env["ns_a"], namespace_report["confirmation_token"]
         )
+
+
+def test_provisioned_initial_credentials_can_be_revoked(env):
+    service = env["s"]
+    from wks_core.storage.stabilization import ClientCredential
+
+    with service.sessions.begin() as db:
+        db.get(Client, env["a_id"]).operator = True
+    with service.sessions() as db:
+        credential = db.scalar(
+            select(ClientCredential).where(ClientCredential.client_id == env["b_id"])
+        )
+        assert credential
+        identity = credential.id
+    service.credential_revoke(env["a"], "revoke-initial", identity)
+    with pytest.raises(Error):
+        service.authenticate(env["b_token"])

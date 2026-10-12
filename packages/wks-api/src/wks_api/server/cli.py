@@ -39,6 +39,15 @@ def provision(service, name, role, token_file, audience="wks"):
         )
         db.add(client)
         db.flush()
+        from wks_core.storage.stabilization import ClientCredential
+
+        db.add(
+            ClientCredential(
+                client_id=client.id,
+                token_hash=client.token_hash,
+                description="initial provisioned credential",
+            )
+        )
         return client.id
 
 
