@@ -38,3 +38,12 @@ salvar a conexão acima no npm. Não é necessário criar outra versão só para
 configurar a conexão.
 
 Referência: https://docs.npmjs.com/trusted-publishers/.
+
+## Validação concluída
+
+A conexão foi validada por uma publicação nova via OIDC em 2026-10-12:
+`wksctl@1.1.1-rc.1`, no canal `next`. O registry identifica o publicador como
+**GitHub Actions**, e as attestations de publicação e provenance SLSA vinculam
+o pacote exato a `.github/workflows/npm.yaml`. O canal estável `latest` continua
+em `1.1.0`. O workflow de publicação e verificação pública terminou com sucesso.
+Veja [evidência da validação](npm-oidc-validation-2026-10-12.md).
