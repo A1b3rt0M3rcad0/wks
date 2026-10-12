@@ -3,6 +3,8 @@
 import argparse
 import json
 import os
+import signal
+import threading
 import time
 
 from wks_core.bootstrap import build
@@ -20,6 +22,12 @@ def main(profile=None):
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--reconcile", action="store_true")
     parser.add_argument("--version", action="store_true")
+    parser.add_argument(
+        "--metrics-port",
+        type=int,
+        default=int(os.environ.get("WKS_WORKER_METRICS_PORT", "0")),
+        help="Optional Prometheus listener on loopback; 0 disables",
+    )
     args = parser.parse_args()
     if args.version:
         from wks_core.version import build_info
@@ -30,13 +38,23 @@ def main(profile=None):
     if profile and queues != (profile,):
         parser.error("This executable consumes only its own queue")
     service, engine = build()
+    metrics_server = None
     try:
+        if args.metrics_port:
+            if not 1 <= args.metrics_port <= 65535:
+                parser.error("metrics-port must be 1..65535 or 0")
+            from prometheus_client import start_http_server
+
+            metrics_server, _ = start_http_server(args.metrics_port, addr="127.0.0.1")
         worker = Worker(service, queues=queues)
         if args.reconcile:
             print(worker.reconcile())
             return
+        stopping = threading.Event()
+        for event in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(event, lambda *_: stopping.set())
         reconciled = 0
-        while True:
+        while not stopping.is_set():
             if time.monotonic() - reconciled >= 60:
                 worker.reconcile()
                 reconciled = time.monotonic()
@@ -44,8 +62,11 @@ def main(profile=None):
             if args.once:
                 break
             if not worked:
-                time.sleep(1)
+                stopping.wait(1)
     finally:
+        if metrics_server:
+            metrics_server.shutdown()
+            metrics_server.server_close()
         engine.dispose()
 
 

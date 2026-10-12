@@ -1,3 +1,7 @@
+import wks_core.storage.export_lease  # noqa: F401
+import wks_core.storage.integrity  # noqa: F401
+import wks_core.storage.retirement  # noqa: F401
+import wks_core.storage.stabilization  # noqa: F401
 from wks_core.application.service import Service
 from wks_core.settings import Settings
 from wks_core.storage.database import database

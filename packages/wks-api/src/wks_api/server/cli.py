@@ -49,7 +49,20 @@ def main():
     sub.add_parser("api")
     sub.add_parser("version")
     sub.add_parser("reindex")
-    sub.add_parser("garbage-collect")
+    gc = sub.add_parser("garbage-collect")
+    gc.add_argument("--page-size", type=int, default=100)
+    gc.add_argument("--cursor")
+    audit = sub.add_parser("audit-integrity")
+    audit.add_argument("--page-size", type=int, default=100)
+    audit.add_argument("--cursor")
+    audit.add_argument("--size-only", action="store_true")
+    migrate = sub.add_parser("migrate-storage")
+    migrate.add_argument("--destination", choices=["filesystem", "s3"], required=True)
+    migrate.add_argument("--directory")
+    migrate.add_argument("--bucket")
+    migrate.add_argument("--endpoint")
+    migrate.add_argument("--region", default="us-east-1")
+    migrate.add_argument("--cursor")
     for command in ("backup", "restore"):
         maintenance = sub.add_parser(command)
         maintenance.add_argument("--directory", required=True)
@@ -79,6 +92,41 @@ def main():
         )
     elif args.command == "provision-client":
         print(provision(service, args.name, args.role, args.token_file, args.audience))
+    elif args.command == "migrate-storage":
+        import json
+
+        from wks_core.storage.migration import migrate
+        from wks_core.storage.storage import FilesystemStore, S3Store
+
+        if args.destination == "filesystem":
+            if not args.directory:
+                parser.error("Filesystem destination requires --directory")
+            destination = FilesystemStore(Path(args.directory))
+        else:
+            if not args.bucket:
+                parser.error("S3 destination requires --bucket")
+            destination = S3Store(
+                service.settings.model_copy(
+                    update={
+                        "s3_bucket": args.bucket,
+                        "s3_endpoint": args.endpoint,
+                        "s3_region": args.region,
+                    }
+                )
+            )
+        print(json.dumps(migrate(service, destination, cursor=args.cursor)))
+    elif args.command == "audit-integrity":
+        import json
+
+        from wks_core.storage.integrity import audit
+
+        print(
+            json.dumps(
+                audit(
+                    service, page_size=args.page_size, cursor=args.cursor, verify=not args.size_only
+                )
+            )
+        )
     elif args.command in {"backup", "restore", "reindex", "garbage-collect"}:
         import json
 
@@ -86,8 +134,10 @@ def main():
 
         method = getattr(maintenance, args.command.replace("garbage-collect", "garbage_collect"))
         result = (
-            method(service)
-            if args.command in {"reindex", "garbage-collect"}
+            method(service, args.page_size, args.cursor)
+            if args.command == "garbage-collect"
+            else method(service)
+            if args.command == "reindex"
             else method(service, args.directory, args.pg_container)
         )
         print(json.dumps(result))

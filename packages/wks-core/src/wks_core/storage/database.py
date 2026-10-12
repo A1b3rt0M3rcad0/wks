@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Computed,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -33,6 +35,8 @@ class Identity:
 
 class Client(Identity, Base):
     __tablename__ = "clients"
+    operator: Mapped[bool] = mapped_column(Boolean, default=False)
+    auth_generation: Mapped[int] = mapped_column(Integer, default=0)
     name: Mapped[str] = mapped_column(String(200), unique=True)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     role: Mapped[str] = mapped_column(String(20), default="client")
@@ -42,6 +46,9 @@ class Client(Identity, Base):
 
 class Namespace(Identity, Base):
     __tablename__ = "namespaces"
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    state: Mapped[str] = mapped_column(String(20), default="active")
+    policy: Mapped[dict] = mapped_column(JSONB, default=dict)
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     external_ref: Mapped[str | None] = mapped_column(String(200))
@@ -51,6 +58,8 @@ class Namespace(Identity, Base):
 
 class Source(Identity, Base):
     __tablename__ = "sources"
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    external_ref: Mapped[str | None] = mapped_column(String(250))
     namespace_id: Mapped[str] = mapped_column(ForeignKey("namespaces.id"), index=True)
     kind: Mapped[str] = mapped_column(String(30))
     title: Mapped[str] = mapped_column(String(500))
@@ -68,6 +77,8 @@ class Source(Identity, Base):
 
 class Collection(Identity, Base):
     __tablename__ = "collections"
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    state: Mapped[str] = mapped_column(String(20), default="active")
     namespace_id: Mapped[str] = mapped_column(ForeignKey("namespaces.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     __table_args__ = (UniqueConstraint("id", "namespace_id"),)
@@ -88,6 +99,7 @@ class CollectionSource(Base):
 
 class Blob(Identity, Base):
     __tablename__ = "blob_objects"
+    location: Mapped[dict] = mapped_column(JSONB, default=dict)
     namespace_id: Mapped[str] = mapped_column(ForeignKey("namespaces.id"), index=True)
     storage_key: Mapped[str] = mapped_column(Text, unique=True)
     sha256: Mapped[str] = mapped_column(String(64))
@@ -126,6 +138,8 @@ class SourceVersion(Identity, Base):
 
 class Upload(Identity, Base):
     __tablename__ = "upload_sessions"
+    received_offset: Mapped[int] = mapped_column(BigInteger, default=0)
+    protocol: Mapped[str] = mapped_column(String(20), default="whole")
     source_version_id: Mapped[str] = mapped_column(ForeignKey("source_versions.id"))
     expected_sha: Mapped[str] = mapped_column(String(64))
     expected_size: Mapped[int] = mapped_column(BigInteger)
@@ -176,11 +190,13 @@ class Stage(Identity, Base):
 
 class Representation(Identity, Base):
     __tablename__ = "representations"
+    schema_version: Mapped[str] = mapped_column(String(20), default="1.0")
+    created_txid: Mapped[int] = mapped_column(BigInteger, server_default=text("txid_current()"))
     namespace_id: Mapped[str] = mapped_column(String(36), index=True)
     source_version_id: Mapped[str] = mapped_column(String(36))
     processing_run_id: Mapped[str] = mapped_column(ForeignKey("processing_runs.id"), unique=True)
-    structure: Mapped[list] = mapped_column(JSONB)
-    markdown: Mapped[str] = mapped_column(Text)
+    structure: Mapped[list] = mapped_column(JSONB, deferred=True)
+    markdown: Mapped[str] = mapped_column(Text, deferred=True)
     coverage: Mapped[dict] = mapped_column(JSONB)
     warnings: Mapped[list] = mapped_column(JSONB)
     availability: Mapped[str] = mapped_column(String(40))
@@ -229,6 +245,10 @@ class Segment(Identity, Base):
     locator: Mapped[dict] = mapped_column(JSONB)
     checksum: Mapped[str] = mapped_column(String(64))
     search_vector: Mapped[str] = mapped_column(TSVECTOR)
+    simple_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('wks_simple'::regconfig,normalize(text,NFC))", persisted=True),
+    )
     __table_args__ = (
         UniqueConstraint("representation_id", "ordinal"),
         ForeignKeyConstraint(
@@ -241,6 +261,8 @@ class Segment(Identity, Base):
 
 class Grant(Identity, Base):
     __tablename__ = "scope_grants"
+    namespace_id: Mapped[str | None] = mapped_column(ForeignKey("namespaces.id"))
+    collection_id: Mapped[str | None] = mapped_column(ForeignKey("collections.id"))
     issuer: Mapped[str] = mapped_column(ForeignKey("clients.id"))
     caller_binding: Mapped[str] = mapped_column(ForeignKey("clients.id"))
     audience: Mapped[str] = mapped_column(String(100))
@@ -254,6 +276,7 @@ class Grant(Identity, Base):
 
 class Receipt(Base):
     __tablename__ = "idempotency_receipts"
+    authorization_scope_hash: Mapped[str | None] = mapped_column(String(64))
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), primary_key=True)
     operation_key: Mapped[str] = mapped_column(String(250), primary_key=True)
     payload_hash: Mapped[str] = mapped_column(String(64))

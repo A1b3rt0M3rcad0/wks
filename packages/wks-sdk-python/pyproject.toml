@@ -1,0 +1,14 @@
+[project]
+name = "wks-sdk-python"
+version = "1.0.0rc1"
+description = "Standalone typed WKS HTTP client with no server dependencies"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = []
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wks_sdk"]

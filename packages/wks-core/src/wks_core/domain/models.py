@@ -15,6 +15,9 @@ class Principal:
     role: str
     audience: str
     grant_id: str | None = None
+    credential_hash: str | None = None
+    context_namespace_id: str | None = None
+    auth_generation: int | None = None
 
 
 @dataclass

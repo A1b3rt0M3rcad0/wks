@@ -1,3 +1,4 @@
+import hashlib
 import os
 import shutil
 import tempfile
@@ -10,9 +11,30 @@ class FilesystemStore:
     def __init__(self, root: Path):
         self.root = root.resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        identity = self.root / ".store-id"
+        if not identity.exists():
+            from uuid import uuid4
+
+            try:
+                fd = os.open(identity, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "w") as stream:
+                    stream.write(str(uuid4()))
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except FileExistsError:
+                pass
+        if identity.is_symlink():
+            raise ValueError("Invalid store identity")
+        self.identity = identity.read_text().strip()
 
     def path(self, key: str) -> Path:
-        p = (self.root / key).resolve()
+        candidate = self.root / key
+        for part in (candidate, *candidate.parents):
+            if part == self.root:
+                break
+            if part.is_symlink():
+                raise ValueError("Symlink object keys are not allowed")
+        p = candidate.resolve()
         if not p.is_relative_to(self.root) or p == self.root:
             raise ValueError("Invalid object key")
         return p
@@ -23,11 +45,23 @@ class FilesystemStore:
         fd, tmp = tempfile.mkstemp(dir=dest.parent)
         try:
             with os.fdopen(fd, "wb") as out, path.open("rb") as source:
-                shutil.copyfileobj(source, out, 1024 * 1024)
+                # Preserve holes for zero regions; large resumable binary inputs need not
+                # consume physical disk for empty extents. Nonzero data is copied unchanged.
+                while chunk := source.read(1024 * 1024):
+                    if chunk.count(0) == len(chunk):
+                        out.seek(len(chunk), 1)
+                    else:
+                        out.write(chunk)
+                out.truncate(out.tell())
                 out.flush()
                 os.fsync(out.fileno())
             # Unique object keys, immutable promotion; never replace an existing original.
             os.link(tmp, dest)
+            fd_dir = os.open(dest.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(fd_dir)
+            finally:
+                os.close(fd_dir)
         finally:
             os.unlink(tmp)
 
@@ -52,8 +86,62 @@ class FilesystemStore:
     def exists(self, key):
         return self.path(key).is_file()
 
+    def list_prefix_page(self, prefix="", cursor=None, page_size=100):
+        import sys
+
+        if sys.platform == "linux":
+            from wks_core.storage.directory_page import page
+
+            return page(self, prefix, cursor, min(max(page_size, 1), 1000))
+        # Object names have one namespace/UUID level. scandir bounds directory state.
+        import os
+
+        values = []
+        for namespace in self.root.iterdir():
+            if not namespace.is_dir() or namespace.is_symlink():
+                continue
+            with os.scandir(namespace) as entries:
+                for entry in entries:
+                    key = f"{namespace.name}/{entry.name}"
+                    if (
+                        entry.is_file(follow_symlinks=False)
+                        and key.startswith(prefix)
+                        and (not cursor or key > cursor)
+                    ):
+                        values.append(key)
+                        if len(values) > page_size * 2:
+                            values = sorted(values)[: page_size + 1]
+        values = sorted(values)[: page_size + 1]
+        return {
+            "keys": values[:page_size],
+            "next_cursor": values[page_size - 1] if len(values) > page_size else None,
+        }
+
     def keys(self):
-        return [str(p.relative_to(self.root)) for p in self.root.rglob("*") if p.is_file()]
+        result, cursor = [], None
+        while True:
+            page = self.list_prefix_page(cursor=cursor)
+            result.extend(page["keys"])
+            cursor = page["next_cursor"]
+            if not cursor:
+                return result
+
+    def location(self):
+        return {"provider": "filesystem", "store_id": self.identity}
+
+    def capabilities(self):
+        return {"immutable_put": True, "range": True, "checksum": "sha256", "paged_listing": True}
+
+    def head(self, key):
+        path = self.path(key)
+        return {"size": path.stat().st_size, "sha256": None}
+
+    def verify_checksum(self, key, sha256, size=None):
+        path = self.path(key)
+        if size is not None and path.stat().st_size != size:
+            return False
+        with path.open("rb") as stream:
+            return hashlib.file_digest(stream, "sha256").hexdigest() == sha256
 
     def ready(self):
         with tempfile.NamedTemporaryFile(dir=self.root) as f:
@@ -64,13 +152,30 @@ class FilesystemStore:
 
 class S3Store:
     def __init__(self, settings):
+        from urllib.parse import urlsplit
+
+        if settings.s3_endpoint and (
+            urlsplit(settings.s3_endpoint).username
+            or urlsplit(settings.s3_endpoint).password
+            or urlsplit(settings.s3_endpoint).query
+        ):
+            raise ValueError("S3 endpoint must not contain credentials or query parameters")
         self.bucket = settings.s3_bucket
+        self.region, self.endpoint = settings.s3_region, settings.s3_endpoint
+        self.multipart_threshold, self.part_bytes = (
+            settings.s3_multipart_threshold,
+            settings.s3_multipart_part_bytes,
+        )
         self.client = boto3.client(
             "s3", endpoint_url=settings.s3_endpoint, region_name=settings.s3_region
         )
 
     def put_file(self, key, path):
         with Path(path).open("rb") as stream:
+            sha = hashlib.file_digest(stream, "sha256").hexdigest()
+            stream.seek(0)
+            if Path(path).stat().st_size >= self.multipart_threshold:
+                return self.put_multipart(key, stream, sha)
             self.client.put_object(
                 Bucket=self.bucket,
                 Key=key,
@@ -78,7 +183,50 @@ class S3Store:
                 ContentLength=Path(path).stat().st_size,
                 IfNoneMatch="*",
                 ChecksumAlgorithm="SHA256",
+                Metadata={"wks-sha256": sha},
             )
+
+    def put_multipart(self, key, stream, sha):
+        import base64
+
+        upload = self.client.create_multipart_upload(
+            Bucket=self.bucket, Key=key, ChecksumAlgorithm="SHA256", Metadata={"wks-sha256": sha}
+        )["UploadId"]
+        try:
+            parts = []
+            while raw := stream.read(self.part_bytes):
+                number = len(parts) + 1
+                if number > 10000:
+                    raise ValueError("S3 multipart part count exceeded")
+                checksum = base64.b64encode(hashlib.sha256(raw).digest()).decode()
+                result = self.client.upload_part(
+                    Bucket=self.bucket,
+                    Key=key,
+                    UploadId=upload,
+                    PartNumber=number,
+                    Body=raw,
+                    ChecksumSHA256=checksum,
+                )
+                parts.append(
+                    {
+                        "PartNumber": number,
+                        "ETag": result["ETag"],
+                        "ChecksumSHA256": result.get("ChecksumSHA256", checksum),
+                    }
+                )
+            return self.client.complete_multipart_upload(
+                Bucket=self.bucket,
+                Key=key,
+                UploadId=upload,
+                MultipartUpload={"Parts": parts},
+                IfNoneMatch="*",
+            )
+        except Exception:
+            try:
+                self.client.abort_multipart_upload(Bucket=self.bucket, Key=key, UploadId=upload)
+            except Exception:
+                pass
+            raise
 
     def materialize(self, key, destination):
         self.client.download_file(self.bucket, key, str(destination))
@@ -107,9 +255,57 @@ class S3Store:
                 return False
             raise
 
+    def list_prefix_page(self, prefix="", cursor=None, page_size=100):
+        args = {"Bucket": self.bucket, "Prefix": prefix, "MaxKeys": min(page_size, 1000)}
+        if cursor:
+            args["ContinuationToken"] = cursor
+        page = self.client.list_objects_v2(**args)
+        return {
+            "keys": [item["Key"] for item in page.get("Contents", [])],
+            "next_cursor": page.get("NextContinuationToken"),
+        }
+
     def keys(self):
-        pages = self.client.get_paginator("list_objects_v2").paginate(Bucket=self.bucket)
-        return [x["Key"] for page in pages for x in page.get("Contents", [])]
+        result, cursor = [], None
+        while True:
+            page = self.list_prefix_page(cursor=cursor)
+            result.extend(page["keys"])
+            cursor = page["next_cursor"]
+            if not cursor:
+                return result
+
+    def location(self):
+        return {
+            "provider": "s3",
+            "bucket": self.bucket,
+            "region": self.region,
+            "endpoint": self.endpoint,
+        }
+
+    def capabilities(self):
+        return {
+            "immutable_put": True,
+            "range": True,
+            "checksum": "sha256",
+            "paged_listing": True,
+            "multipart": True,
+        }
+
+    def head(self, key):
+        value = self.client.head_object(Bucket=self.bucket, Key=key)
+        return {
+            "size": value["ContentLength"],
+            "sha256": value.get("Metadata", {}).get("wks-sha256"),
+            "object_version": value.get("VersionId"),
+        }
+
+    def verify_checksum(self, key, sha256, size=None):
+        if size is not None and self.head(key)["size"] != size:
+            return False
+        digest = hashlib.sha256()
+        for chunk in self.iter_bytes(key):
+            digest.update(chunk)
+        return digest.hexdigest() == sha256
 
     def ready(self):
         self.client.head_bucket(Bucket=self.bucket)

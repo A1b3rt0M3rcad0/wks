@@ -20,3 +20,20 @@ class SourceProcessor(Protocol):
 
 class MediaEnricher(Protocol):
     def enrich(self, content: bytes, media_type: str, operation_id: str) -> dict: ...
+
+
+class BlobStore(ObjectStore, Protocol):
+    """Immutable bytes with verified SHA-256 and bounded provider-native listing.
+
+    put_file stages an immutable key; the application journal commits its logical
+    publication. A provider must never overwrite an existing key. Network IO has
+    no access to the SQL transaction that attaches its verified metadata.
+    """
+
+    def head(self, key: str) -> dict: ...
+    def location(self) -> dict: ...
+    def verify_checksum(self, key: str, sha256: str, size: int | None = None) -> bool: ...
+    def list_prefix_page(
+        self, prefix: str = "", cursor: str | None = None, page_size: int = 100
+    ) -> dict: ...
+    def capabilities(self) -> dict: ...

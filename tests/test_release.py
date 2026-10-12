@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 
 def module(name):
@@ -183,3 +184,13 @@ def test_component_exports_preserve_only_the_required_index(tmp_path, monkeypatc
             not in (candidate / (component + "-requirements.txt")).read_text()
         )
     assert "download.pytorch.org" in (candidate / "docling-requirements.txt").read_text()
+
+
+def test_automatic_candidate_never_promotes_to_stable():
+    channel = module("release_channel")
+    assert channel.choose("1.0.0", {"1.0.0-rc.1"}) == "1.0.0-rc.2"
+    assert channel.choose("1.1.0", {"1.0.0"}) == "1.1.0-rc.1"
+    with pytest.raises(ValueError):
+        channel.choose("1.0.0", set(), explicit=True)
+    assert channel.choose("1.0.0", set(), explicit=True, reviewed=True) == "1.0.0"
+    assert channel.choose("1.0.0", set(), tagged=True) == "1.0.0"

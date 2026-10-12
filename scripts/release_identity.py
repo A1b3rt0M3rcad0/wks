@@ -114,9 +114,24 @@ if __name__ == "__main__":
     parser.add_argument("--version", default="")
     parser.add_argument("--revision", default="")
     parser.add_argument("--tag", default="")
+    parser.add_argument("--stable-reviewed", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = select(args.version, args.revision, args.tag)
+    if result:
+        from release_channel import choose
+
+        existing = {value.removeprefix("v") for value in git("tag", "--list", "v*").splitlines()}
+        result = (
+            choose(
+                result[0],
+                existing,
+                explicit=bool(args.version),
+                tagged=bool(args.tag),
+                reviewed=args.stable_reviewed,
+            ),
+            result[1],
+        )
     with args.output.open("a") as output:
         if result is None:
             output.write("skip=true\n")

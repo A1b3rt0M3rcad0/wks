@@ -12,6 +12,8 @@ from sqlalchemy import delete
 from wks_core.domain.models import Error, Principal
 from wks_core.storage.database import Client, now
 
+from wks_api.contracts.responses import RecoveryTokenResponse, SessionResponse, SetupResponse
+
 from .models import Account, WebSession
 
 COOKIE = "wks_session"
@@ -41,7 +43,9 @@ def resolve(service, request: Request, mutation=False):
         caller = db.get(Client, session.client_id)
         if not caller or not caller.active or caller.role != "client":
             raise Error("auth.unauthenticated", "Authentication required", 401)
-        p = Principal(caller.id, caller.role, caller.audience)
+        p = Principal(
+            caller.id, caller.role, caller.audience, auth_generation=caller.auth_generation
+        )
         service.grant(db, p)
         if mutation:
             check_origin(service, request)
@@ -88,15 +92,15 @@ def install_sessions(app, service):
 
     accounts = Accounts(service)
 
-    @app.get("/app/setup")
+    @app.get("/app/setup", response_model=SetupResponse)
     def setup_state():
         return {"setup_required": accounts.setup_required()}
 
-    @app.post("/app/setup", status_code=201)
+    @app.post("/app/setup", status_code=201, response_model=SessionResponse)
     def setup(body: SetupBody, request: Request):
         return accounts.setup(body, request)
 
-    @app.post("/app/session")
+    @app.post("/app/session", response_model=SessionResponse)
     def login(body: Credentials | LegacyLoginBody, request: Request):
         if isinstance(body, Credentials):
             return accounts.login(body, request)
@@ -110,15 +114,15 @@ def install_sessions(app, service):
             response = issue_session(service, db, p.client_id, request)
         return response
 
-    @app.post("/app/recover")
+    @app.post("/app/recover", response_model=SessionResponse)
     def recover(body: RecoveryBody, request: Request):
         return accounts.recover(body, request)
 
-    @app.post("/app/recovery-token")
+    @app.post("/app/recovery-token", response_model=RecoveryTokenResponse)
     def rotate(body: PasswordBody, request: Request):
         return accounts.rotate_recovery(body, request, resolve(service, request, mutation=True))
 
-    @app.get("/app/session")
+    @app.get("/app/session", response_model=SessionResponse)
     def identity(request: Request):
         p = resolve(service, request)
         with service.sessions() as db:
@@ -131,7 +135,7 @@ def install_sessions(app, service):
                 "upload_max_bytes": min(service.settings.upload_max_bytes, 64 * 1024 * 1024),
             }
 
-    @app.delete("/app/session")
+    @app.delete("/app/session", response_model=SessionResponse)
     def logout(request: Request):
         check_origin(service, request)
         token = request.cookies.get(COOKIE, "")

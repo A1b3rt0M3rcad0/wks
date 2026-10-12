@@ -109,3 +109,13 @@ o GitHub Release e quatro imagens GHCR para amd64/arm64.
 `VERSION` define o piso revisado; commits convencionais calculam os incrementos.
 Tags, arquivos publicados e imagens de versão são imutáveis. Veja [versionamento,
 instalação e retomada de releases](docs/RELEASING.md).
+
+## Estabilização
+
+A estabilização adiciona leitura canônica paginada, export integral, upload
+retomável, journal de blobs, backup MVCC com replay de privacidade, search lexical
+fuzzy/proximidade, policies e SDKs Go/Python. A licença do WKS é Apache-2.0.
+Veja [CLI](docs/CLI.md), [operação e upgrade](docs/stabilization/OPERATIONS.md),
+[licenças de dependências](docs/THIRD_PARTY_NOTICES.md) e
+[evidências](docs/stabilization/PROGRESS.md). Homologação externa foi retirada
+do escopo pelo proprietário; não há certificação AWS, SLO ou integração Lipo/Woobe.

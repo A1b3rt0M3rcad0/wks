@@ -201,6 +201,7 @@ def test_A15_A16_fencing_and_expired_lease_recovery(env):
 
 
 def test_parallel_workers_claim_distinct_jobs(env):
+    env["s"].settings.namespace_max_concurrent_jobs = 4
     for i in range(4):
         register_text(env, key=str(i))
     with ThreadPoolExecutor(max_workers=4) as e:

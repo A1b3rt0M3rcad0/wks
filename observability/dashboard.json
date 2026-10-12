@@ -1,0 +1,16 @@
+{
+  "title": "WKS operations",
+  "uid": "wks-operations",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["wks"],
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "HTTP requests", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "sum by (status) (rate(wks_http_requests_total[5m]))", "refId": "A"}]},
+    {"id": 2, "type": "timeseries", "title": "HTTP p95 seconds", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le, method) (rate(wks_http_seconds_bucket[5m])))", "refId": "A"}]},
+    {"id": 3, "type": "timeseries", "title": "Jobs by profile and state", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "targets": [{"expr": "wks_jobs", "refId": "A"}]},
+    {"id": 4, "type": "timeseries", "title": "Oldest queued job seconds", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "targets": [{"expr": "wks_oldest_queued_job_seconds", "refId": "A"}]},
+    {"id": 5, "type": "stat", "title": "Recorded blob bytes", "gridPos": {"h": 5, "w": 12, "x": 0, "y": 16}, "targets": [{"expr": "wks_recorded_blob_bytes", "refId": "A"}]},
+    {"id": 6, "type": "stat", "title": "Critical original failure", "gridPos": {"h": 5, "w": 12, "x": 12, "y": 16}, "targets": [{"expr": "wks_critical_original_failures", "refId": "A"}]}
+  ]
+}

@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from urllib.parse import urljoin, urlsplit
 
 from sqlalchemy import select
+from wks_core.application.utilities import digest as service_digest
 from wks_core.domain.models import Error
 from wks_core.storage.content import detect_mime
 from wks_core.storage.database import SourceVersion, now
@@ -118,15 +119,34 @@ def capture_source(service, p, key, sid):
     if not service.settings.web_capture_enabled:
         raise Error("capture.disabled", "Explicit capture is disabled", 409)
 
+    command = {"op": "capture", "sid": sid}
+    previous = service.receipt(p, key, command)
+    if previous:
+        return previous
+    with service.sessions() as check:
+        check.info["wks_action"] = "source:capture"
+        src = service.source(check, p, sid, writing=True)
+        if not src.external_uri:
+            raise Error("capture.source_invalid", "Source has no bookmark URI")
+        namespace_id, uri = src.namespace_id, src.external_uri
+    with TemporaryDirectory() as temp:
+        path = Path(temp) / "capture"
+        facts = fetch_public(uri, path, service.settings)
+        identity = service.stage_blob(
+            namespace_id,
+            path,
+            facts["media_type"],
+            "capture",
+            service_digest([p.client_id, p.grant_id, key, sid]),
+        )
+
     def op(db):
         src = service.source(db, p, sid, writing=True)
         if not src.external_uri:
             raise Error("capture.source_invalid", "Source has no bookmark URI")
-        with TemporaryDirectory() as temp:
-            path = Path(temp) / "capture"
-            facts = fetch_public(src.external_uri, path, service.settings)
-            service.quota(db, src.namespace_id, path.stat().st_size)
-            blob = service.save_blob(db, src.namespace_id, path, facts["media_type"])
+        if src.external_uri != uri:
+            raise Error("source.revision_conflict", "Source changed during capture", 409)
+        blob = service.attach_blob(db, identity, src.namespace_id)
         versions = db.scalars(select(SourceVersion).where(SourceVersion.source_id == sid)).all()
         v = SourceVersion(
             source_id=sid,
@@ -154,4 +174,4 @@ def capture_source(service, p, key, sid):
             "captured_at": v.captured_at.isoformat(),
         }
 
-    return service.mutate(p, key, {"op": "capture", "sid": sid}, op)
+    return service.mutate(p, key, command, op)

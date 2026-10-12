@@ -14,6 +14,7 @@ resolution-markers = [
 members = [
     "wks-api",
     "wks-core",
+    "wks-sdk-python",
     "wks-worker",
     "wks-worker-docling",
     "wks-worker-media",
@@ -3495,7 +3496,7 @@ wheels = [
 
 [[package]]
 name = "wks-api"
-version = "0.3.0"
+version = "1.0.0rc1"
 source = { editable = "packages/wks-api" }
 dependencies = [
     { name = "fastapi" },
@@ -3516,7 +3517,7 @@ requires-dist = [
 
 [[package]]
 name = "wks-core"
-version = "0.3.0"
+version = "1.0.0rc1"
 source = { editable = "packages/wks-core" }
 dependencies = [
     { name = "alembic" },
@@ -3538,19 +3539,28 @@ requires-dist = [
 ]
 
 [[package]]
+name = "wks-sdk-python"
+version = "1.0.0rc1"
+source = { editable = "packages/wks-sdk-python" }
+
+[[package]]
 name = "wks-worker"
-version = "0.3.0"
+version = "1.0.0rc1"
 source = { editable = "packages/wks-worker" }
 dependencies = [
+    { name = "prometheus-client" },
     { name = "wks-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "wks-core", editable = "packages/wks-core" }]
+requires-dist = [
+    { name = "prometheus-client", specifier = ">=0.21,<1" },
+    { name = "wks-core", editable = "packages/wks-core" },
+]
 
 [[package]]
 name = "wks-worker-docling"
-version = "0.3.0"
+version = "1.0.0rc1"
 source = { editable = "packages/wks-worker-docling" }
 dependencies = [
     { name = "wks-worker" },
@@ -3578,7 +3588,7 @@ provides-extras = ["models"]
 
 [[package]]
 name = "wks-worker-media"
-version = "0.3.0"
+version = "1.0.0rc1"
 source = { editable = "packages/wks-worker-media" }
 dependencies = [
     { name = "wks-worker" },
@@ -3600,9 +3610,10 @@ provides-extras = ["asr"]
 
 [[package]]
 name = "wks-worker-native"
-version = "0.3.0"
+version = "1.0.0rc1"
 source = { editable = "packages/wks-worker-native" }
 dependencies = [
+    { name = "openpyxl" },
     { name = "pillow" },
     { name = "pypdf" },
     { name = "pypdfium2" },
@@ -3615,6 +3626,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "openpyxl", specifier = ">=3.1,<4" },
     { name = "pillow", specifier = ">=11,<13" },
     { name = "pypdf", specifier = ">=5,<7" },
     { name = "pypdfium2", specifier = ">=4.30,<6" },
@@ -3627,10 +3639,11 @@ requires-dist = [
 
 [[package]]
 name = "woobe-knowledge-service"
-version = "0.3.0"
+version = "1.0.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "wks-api" },
+    { name = "wks-sdk-python" },
     { name = "wks-worker-docling" },
     { name = "wks-worker-media" },
     { name = "wks-worker-native" },
@@ -3656,6 +3669,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "wks-api", editable = "packages/wks-api" },
+    { name = "wks-sdk-python", editable = "packages/wks-sdk-python" },
     { name = "wks-worker-docling", editable = "packages/wks-worker-docling" },
     { name = "wks-worker-docling", extras = ["models"], marker = "extra == 'docling'", editable = "packages/wks-worker-docling" },
     { name = "wks-worker-media", editable = "packages/wks-worker-media" },

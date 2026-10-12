@@ -4,10 +4,11 @@ from datetime import timedelta
 
 from fastapi import Request
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import case, delete, select, text
+from sqlalchemy import case, delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from wks_core.domain.models import Error, new_id
-from wks_core.storage.database import Client, now
+from wks_core.storage.database import Client, Grant, now
+from wks_core.storage.stabilization import ClientCredential
 
 from .models import Account, AuthAttempt, WebSession
 from .passwords import DUMMY_PASSWORD, password_hash, password_matches, recovery_token, token_hash
@@ -105,6 +106,7 @@ class Accounts:
                 role="client",
                 audience="wks",
                 active=True,
+                operator=True,
             )
             db.add(client)
             db.flush()
@@ -166,6 +168,21 @@ class Accounts:
             secret = recovery_token()
             account.password_hash = password_hash(body.password)
             account.recovery_token_hash = token_hash(secret)
+            self.service.privacy_ledger.append(
+                "account_recovered",
+                client.id,
+                {
+                    "password_hash": account.password_hash,
+                    "recovery_token_hash": account.recovery_token_hash,
+                },
+            )
+            db.execute(
+                update(ClientCredential)
+                .where(ClientCredential.client_id == client.id)
+                .values(revoked_at=now())
+            )
+            db.execute(update(Grant).where(Grant.issuer == client.id).values(revoked_at=now()))
+            client.auth_generation += 1
             client.token_hash = token_hash(recovery_token())
             db.execute(delete(WebSession).where(WebSession.client_id == client.id))
             response = issue_session(
@@ -191,4 +208,9 @@ class Accounts:
             self._client(db, account)
             secret = recovery_token()
             account.recovery_token_hash = token_hash(secret)
+            self.service.privacy_ledger.append(
+                "recovery_rotated",
+                account.client_id,
+                {"recovery_token_hash": account.recovery_token_hash},
+            )
         return {"username": account.username, "recovery_token": secret}

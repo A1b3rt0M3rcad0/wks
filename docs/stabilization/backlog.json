@@ -1,0 +1,559 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "a570aac7ed9bb950e7f3f9aae33628fa5f6821bb",
+  "license": "Apache-2.0",
+  "scope": "WKS repository only; no changes or claimed qualification of Lipo/Woobe; external homologation explicitly waived by user",
+  "items": [
+    {
+      "id": "WKS-100",
+      "action": "Capturar baseline exato, CI, hardware, dataset e capabilities atuais",
+      "findings": "A01-A30",
+      "dependencies": "—",
+      "size": "M",
+      "status": "verified",
+      "evidence": [
+        "docs/stabilization/PROGRESS.md",
+        "tests/test_release.py"
+      ]
+    },
+    {
+      "id": "WKS-101",
+      "action": "Definir versionamento do canonical representation / Block schema",
+      "findings": "A04, A14, A15",
+      "dependencies": "100",
+      "size": "M",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "packages/wks-core/src/wks_core/domain/canonical.py",
+        "tests/test_formats_registry.py"
+      ]
+    },
+    {
+      "id": "WKS-102",
+      "action": "Criar modelagem de blocos pagináveis + migração/backfill",
+      "findings": "A04, A13",
+      "dependencies": "101",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "migrations/versions/0008_stabilization_foundation.py",
+        "tests/test_stabilization.py"
+      ]
+    },
+    {
+      "id": "WKS-103",
+      "action": "Criar `/blocks/{id}` e cursor read/outline consistente",
+      "findings": "A04, A13",
+      "dependencies": "102",
+      "size": "M",
+      "status": "verified",
+      "evidence": [
+        "tests/test_stabilization.py",
+        "packages/wks-core/src/wks_core/application/reading.py"
+      ]
+    },
+    {
+      "id": "WKS-104",
+      "action": "Separar application commands/queries incrementalmente",
+      "findings": "A27",
+      "dependencies": "101",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "packages/wks-core/src/wks_core/application/authorization.py",
+        "docs/stabilization/ARCHITECTURE.md"
+      ]
+    },
+    {
+      "id": "WKS-105",
+      "action": "Criar operações de metadata, versions, collections/namespaces",
+      "findings": "A20, A28",
+      "dependencies": "101",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_history_and_bulk.py",
+        "tests/test_stabilization.py"
+      ]
+    },
+    {
+      "id": "WKS-106",
+      "action": "Formalizar journal/recuperação de BlobOperation",
+      "findings": "A07",
+      "dependencies": "101",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_fault_recovery.py",
+        "packages/wks-core/src/wks_core/storage/journal.py"
+      ]
+    },
+    {
+      "id": "WKS-107",
+      "action": "Implementar backup consistente de bloqueio curto",
+      "findings": "A05, A25",
+      "dependencies": "106",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_stabilization.py",
+        "packages/wks-core/src/wks_core/storage/snapshot.py"
+      ]
+    },
+    {
+      "id": "WKS-108",
+      "action": "Criar replay/ledger de exclusões pós-backup",
+      "findings": "A25",
+      "dependencies": "107",
+      "size": "L",
+      "status": "verified",
+      "evidence": [
+        "tests/test_stabilization.py::test_backup_replays_deletions_grant_revocations_and_account_recovery"
+      ]
+    },
+    {
+      "id": "WKS-109",
+      "action": "Formalizar StoragePort e suíte de contratos",
+      "findings": "A06, A18",
+      "dependencies": "106",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_security_storage.py",
+        "tests/test_storage_multipart.py",
+        "tests/test_storage_migration.py"
+      ]
+    },
+    {
+      "id": "WKS-110",
+      "action": "Homologar MinIO + AWS S3 real",
+      "findings": "A06, A17",
+      "dependencies": "109",
+      "size": "M",
+      "status": "out_of_scope_by_user",
+      "evidence": [
+        "Owner: WKS only; external homologation waived"
+      ]
+    },
+    {
+      "id": "WKS-111",
+      "action": "Adicionar multipart/resume/abort + CLI upload",
+      "findings": "A17",
+      "dependencies": "109, 130",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_large_transfer.py",
+        "tests/test_resumable_upload.py",
+        "tests/test_public_clients.py"
+      ]
+    },
+    {
+      "id": "WKS-112",
+      "action": "GC incremental, retenção e orçamento de storage",
+      "findings": "A19, A24",
+      "dependencies": "106",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_incremental_gc.py",
+        "tests/test_namespace_policies.py"
+      ]
+    },
+    {
+      "id": "WKS-113",
+      "action": "Otimizar downloads com política de revogação",
+      "findings": "A16",
+      "dependencies": "109",
+      "size": "M",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_download_conditions.py",
+        "tests/test_large_transfer.py"
+      ]
+    },
+    {
+      "id": "WKS-114",
+      "action": "Implementar processors registry e capabilities por MIME",
+      "findings": "A14",
+      "dependencies": "101",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_format_ingestion.py",
+        "tests/test_formats_registry.py"
+      ]
+    },
+    {
+      "id": "WKS-115",
+      "action": "XLSX/ODS e EPUB com fixtures e quality reports",
+      "findings": "A14",
+      "dependencies": "114",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_format_ingestion.py",
+        "tests/test_formats_registry.py"
+      ]
+    },
+    {
+      "id": "WKS-116",
+      "action": "Texto/código/XML/HTML mais abrangentes",
+      "findings": "A14",
+      "dependencies": "114",
+      "size": "M",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_formats_registry.py",
+        "tests/test_format_ingestion.py"
+      ]
+    },
+    {
+      "id": "WKS-117",
+      "action": "Qualificar OCR/Office/ASR/video com policies e gold fixtures",
+      "findings": "A14, A15",
+      "dependencies": "114",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_processing.py",
+        "tests/test_worker_queues.py",
+        "docs/stabilization/OPERATIONS.md"
+      ],
+      "qualification_scope": "Local functional checks and native CI; external accuracy, capacity and staging certification waived, not claimed."
+    },
+    {
+      "id": "WKS-118",
+      "action": "Renderizador Markdown canônico e bundle",
+      "findings": "A15",
+      "dependencies": "101",
+      "size": "XL",
+      "status": "verified",
+      "evidence": [
+        "tests/test_exports.py"
+      ]
+    },
+    {
+      "id": "WKS-119",
+      "action": "Endpoints e receipts de export",
+      "findings": "A04",
+      "dependencies": "103, 118",
+      "size": "L",
+      "status": "verified",
+      "evidence": [
+        "tests/test_exports.py"
+      ]
+    },
+    {
+      "id": "WKS-120",
+      "action": "Corrigir snippets, título repetido e ranking inicial",
+      "findings": "A10, A12",
+      "dependencies": "101",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_search_stabilization.py"
+      ]
+    },
+    {
+      "id": "WKS-121",
+      "action": "Adicionar pg_trgm/fuzzy/proximidade/suggestions com ACL",
+      "findings": "A10, A11, A29",
+      "dependencies": "120",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_search_stabilization.py"
+      ]
+    },
+    {
+      "id": "WKS-122",
+      "action": "Detecção/declaração de idioma e ranking multilíngue",
+      "findings": "A11",
+      "dependencies": "120",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_search_stabilization.py",
+        "packages/wks-core/src/wks_core/domain/searching.py"
+      ]
+    },
+    {
+      "id": "WKS-123",
+      "action": "Criar corpus qrels/avaliação+benchmark sob carga",
+      "findings": "A30",
+      "dependencies": "120",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "scripts/evaluate_search.py",
+        "tests/fixtures/stabilization/search-corpus.json",
+        "tests/test_public_clients.py"
+      ],
+      "qualification_scope": "Local functional checks and native CI; external accuracy, capacity and staging certification waived, not claimed."
+    },
+    {
+      "id": "WKS-124",
+      "action": "Reavaliar engine BM25 *somente se baseline justificar*",
+      "findings": "A10, A30",
+      "dependencies": "123",
+      "size": "S (decisão); XL se adotar",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "docs/stabilization/OPERATIONS.md"
+      ]
+    },
+    {
+      "id": "WKS-125",
+      "action": "Completar response schemas OpenAPI e versionamento",
+      "findings": "A03",
+      "dependencies": "101",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_public_schema.py",
+        "packages/wks-api/openapi.json"
+      ]
+    },
+    {
+      "id": "WKS-126",
+      "action": "Implementar versão de errors/receipts/pagination/operations",
+      "findings": "A03",
+      "dependencies": "125, 106",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_sdk_python.py",
+        "tests/test_public_clients.py"
+      ]
+    },
+    {
+      "id": "WKS-127",
+      "action": "Gestão autorizada de client/token/grants por scope/actions",
+      "findings": "A21, A22",
+      "dependencies": "125, 101",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_stabilization.py",
+        "tests/test_accounts.py"
+      ]
+    },
+    {
+      "id": "WKS-128",
+      "action": "Endpoint de events/outbox e replay; webhooks opcionais",
+      "findings": "A23",
+      "dependencies": "125",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "packages/wks-core/src/wks_core/application/management.py",
+        "tests/test_stabilization.py"
+      ]
+    },
+    {
+      "id": "WKS-129",
+      "action": "SDK Go e Python + conformance tests",
+      "findings": "A03",
+      "dependencies": "125-127",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_public_clients.py",
+        "packages/wks-sdk-go/client_test.go"
+      ]
+    },
+    {
+      "id": "WKS-130",
+      "action": "CLI `wksctl`: auth/context/help/doctor/outputs",
+      "findings": "A01",
+      "dependencies": "125-127",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "packages/wksctl/internal/cli/run_test.go",
+        "tests/test_public_clients.py"
+      ]
+    },
+    {
+      "id": "WKS-131",
+      "action": "CLI Source/Collection/Namespace/Search/Export",
+      "findings": "A01, A04",
+      "dependencies": "130, 119",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_public_clients.py",
+        "packages/wksctl/internal/cli/commands.go"
+      ]
+    },
+    {
+      "id": "WKS-132",
+      "action": "`.wks` manifests/diff/plan/apply/sync",
+      "findings": "A01",
+      "dependencies": "131, 126",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_public_clients.py",
+        "packages/wksctl/internal/cli/manifest.go"
+      ]
+    },
+    {
+      "id": "WKS-133",
+      "action": "CLI testes declarativos e harness",
+      "findings": "A01, A30",
+      "dependencies": "131, 123",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_public_clients.py",
+        "packages/wksctl/internal/cli/testing.go"
+      ]
+    },
+    {
+      "id": "WKS-134",
+      "action": "MCP Tools de escrita e outputSchema",
+      "findings": "A02, A21",
+      "dependencies": "127, 125",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_mcp_writes.py",
+        "tests/test_mcp.py"
+      ]
+    },
+    {
+      "id": "WKS-135",
+      "action": "MCP upload out-of-band + interop clientes",
+      "findings": "A02, A17",
+      "dependencies": "134, 111",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_mcp_writes.py",
+        "tests/test_large_transfer.py"
+      ]
+    },
+    {
+      "id": "WKS-136",
+      "action": "Agent Skill + Windows/macOS/Linux CLI acceptance",
+      "findings": "A01",
+      "dependencies": "130-133",
+      "size": "M",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        ".github/workflows/ci.yaml",
+        "packages/wksctl/internal/cli/initialize.go",
+        "packages/wksctl/internal/config/private_windows.go"
+      ],
+      "qualification_scope": "Local functional checks and native CI; external accuracy, capacity and staging certification waived, not claimed."
+    },
+    {
+      "id": "WKS-137",
+      "action": "Rate/quotas, policies e sandbox de extração",
+      "findings": "A21, A26",
+      "dependencies": "114, 127",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_namespace_policies.py",
+        "tests/test_decoder_sandbox.py",
+        "tests/test_worker_fairness.py"
+      ]
+    },
+    {
+      "id": "WKS-138",
+      "action": "Métricas de search/jobs/storage e dashboards",
+      "findings": "A26",
+      "dependencies": "109, 120",
+      "size": "L",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "observability/dashboard.json",
+        "packages/wks-api/src/wks_api/http/app.py",
+        "packages/wks-worker/src/wks_worker/telemetry.py"
+      ]
+    },
+    {
+      "id": "WKS-139",
+      "action": "Fault injection, backup/restore, corruption, chaos gates",
+      "findings": "A05-A07, A25",
+      "dependencies": "106-113",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_fault_recovery.py",
+        "tests/test_integrity_audit.py",
+        "tests/test_stabilization.py"
+      ]
+    },
+    {
+      "id": "WKS-140",
+      "action": "Adapter Lipo, migração e Tutor citations",
+      "findings": "A09",
+      "dependencies": "119, 125, 127",
+      "size": "XL",
+      "status": "out_of_scope_by_user",
+      "evidence": [
+        "Owner: WKS only; external homologation waived"
+      ]
+    },
+    {
+      "id": "WKS-141",
+      "action": "WKSKnowledgeStrategy Woobe + MCP com grants",
+      "findings": "A09",
+      "dependencies": "125, 127, 134",
+      "size": "XL",
+      "status": "out_of_scope_by_user",
+      "evidence": [
+        "Owner: WKS only; external homologation waived"
+      ]
+    },
+    {
+      "id": "WKS-142",
+      "action": "Consumidor third-party E2E e SDK samples",
+      "findings": "A09",
+      "dependencies": "129",
+      "size": "M",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "tests/test_public_clients.py"
+      ]
+    },
+    {
+      "id": "WKS-143",
+      "action": "Licença, notices, SBOM, security docs",
+      "findings": "A08",
+      "dependencies": "100",
+      "size": "M",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        "LICENSE",
+        "NOTICE",
+        "SECURITY.md",
+        "docs/THIRD_PARTY_NOTICES.md",
+        "scripts/distribution.py"
+      ]
+    },
+    {
+      "id": "WKS-144",
+      "action": "Release candidate, upgrade, scripts e go/no-go",
+      "findings": "Todos",
+      "dependencies": "139-143",
+      "size": "XL",
+      "status": "implemented_pending_final_candidate_validation",
+      "evidence": [
+        ".github/workflows/release.yaml",
+        "scripts/verify_release.py",
+        "docs/stabilization/OPERATIONS.md"
+      ],
+      "qualification_scope": "Local functional checks and native CI; external accuracy, capacity and staging certification waived, not claimed."
+    }
+  ],
+  "waived_gates": [
+    "AWS S3 certification",
+    "Lipo/Woobe runtime homologation",
+    "production SLO/staging certification"
+  ]
+}

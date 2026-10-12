@@ -1,29 +1,28 @@
 import hashlib
 import hmac
-import json
 import os
 import secrets
-import unicodedata
 from dataclasses import asdict
 from datetime import timedelta
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from sqlalchemy import (
-    BigInteger,
-    Double,
-    and_,
-    cast,
     delete,
-    exists,
     func,
-    literal,
-    or_,
     select,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
-from wks_core.domain.models import Error, Principal, new_id, not_found
+from wks_core.application.authorization import AccessControlService
+from wks_core.application.budgets import BudgetService
+from wks_core.application.capabilities import CapabilitiesService
+from wks_core.application.exports import ExportService
+from wks_core.application.management import ManagementService
+from wks_core.application.reading import ReadingService
+from wks_core.application.search import SearchService
+from wks_core.application.transfers import TransferService
+from wks_core.application.utilities import digest, file_digest
+from wks_core.domain.models import Error, new_id, not_found
 from wks_core.storage.database import (
     Asset,
     Audit,
@@ -36,7 +35,6 @@ from wks_core.storage.database import (
     Grant,
     Namespace,
     ProcessingRun,
-    Receipt,
     Representation,
     Segment,
     Source,
@@ -46,33 +44,29 @@ from wks_core.storage.database import (
 )
 
 
-def digest(value):
-    raw = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-
-def file_digest(path):
-    with Path(path).open("rb") as f:
-        return hashlib.file_digest(f, "sha256").hexdigest()
-
-
-def markdown(blocks):
-    parts = []
-    for b in blocks:
-        value = b["text"]
-        if b["type"] == "heading":
-            value = "#" * min(b.get("data", {}).get("level", 2), 6) + " " + value
-        if b["type"] == "picture_ref":
-            value += "\n" + "\n".join(f"![source asset]({ref})" for ref in b["asset_refs"])
-        parts.append(value)
-    return "\n\n".join(parts)
-
-
-class Service:
+class Service(
+    BudgetService,
+    TransferService,
+    SearchService,
+    CapabilitiesService,
+    ExportService,
+    ReadingService,
+    ManagementService,
+    AccessControlService,
+):
     """Shared transaction and policy boundary used by HTTP, MCP and workers."""
 
     def __init__(self, settings, sessions, store):
         self.settings, self.sessions, self.store = settings, sessions, store
+        from wks_core.storage.privacy import PrivacyLedger
+
+        self.privacy_ledger = PrivacyLedger(self)
+        marker = settings.storage_path.parent / (
+            "restore-blocked-"
+            + hashlib.sha256(settings.database_url.rsplit("/", 1)[-1].encode()).hexdigest()[:16]
+        )
+        self.restore_blocked = marker.exists()
+        self.restore_marker = marker
         self.cursor_key = settings.cursor_secret
         if not self.cursor_key:
             if settings.env == "production":
@@ -91,122 +85,10 @@ class Service:
                         pass
             self.cursor_key = path.read_text().strip()
 
-    def authenticate(self, token, grant_id=None):
-        if not token:
-            raise Error("auth.unauthenticated", "Authentication required", 401)
-        with self.sessions() as db:
-            caller = db.scalar(
-                select(Client).where(
-                    Client.token_hash == hashlib.sha256(token.encode()).hexdigest(), Client.active
-                )
-            )
-            if not caller:
-                raise Error("auth.unauthenticated", "Authentication required", 401)
-            p = Principal(caller.id, caller.role, caller.audience, grant_id)
-            self.grant(db, p)
-            return p
-
-    def grant(self, db, p, action=None):
-        caller = db.get(Client, p.client_id)
-        if (
-            not caller
-            or not caller.active
-            or caller.role != p.role
-            or caller.audience != p.audience
-        ):
-            raise Error("auth.forbidden", "Caller unavailable", 403)
-        if p.role == "executor" and not p.grant_id:
-            raise Error("auth.forbidden", "Delegation required", 403)
-        if not p.grant_id:
-            return None
-        g = db.get(Grant, p.grant_id)
-        if not g or g.caller_binding != p.client_id or g.audience != p.audience or g.revoked_at:
-            raise Error("auth.forbidden", "Delegation unavailable", 403)
-        if g.expires_at <= now():
-            raise Error("auth.grant_expired", "Delegation expired", 403)
-        if action and action not in g.allowed_actions:
-            raise Error("auth.forbidden", "Action unavailable", 403)
-        return g
-
-    def write(self, db, p, namespace_id):
-        self.grant(db, p)
-        if p.grant_id or p.role != "client":
-            raise Error("auth.forbidden", "Write unavailable", 403)
-        ns = db.get(Namespace, namespace_id)
-        if not ns or ns.client_id != p.client_id:
-            raise not_found()
-        return ns
-
-    def source(self, db, p, source_id, action="read", version_id=None, writing=False):
-        src = db.get(Source, source_id)
-        if not src or src.state in {"revoked", "deleted"}:
-            raise not_found()
-        if writing:
-            self.write(db, p, src.namespace_id)
-        else:
-            g = self.grant(db, p, action)
-            if g:
-                candidates = [version_id] if version_id else g.source_version_ids
-                if version_id and version_id not in g.source_version_ids:
-                    raise not_found()
-                if not db.scalar(
-                    select(
-                        exists().where(
-                            SourceVersion.source_id == src.id, SourceVersion.id.in_(candidates)
-                        )
-                    )
-                ):
-                    raise not_found()
-            elif db.get(Namespace, src.namespace_id).client_id != p.client_id:
-                raise not_found()
-        return src
-
-    def visible(self, db, p, action):
-        g = self.grant(db, p, action)
-        clauses = [Source.state == "stored", Source.deleted_at.is_(None)]
-        if g:
-            clauses.append(SourceVersion.id.in_(g.source_version_ids))
-        else:
-            clauses.append(
-                Source.namespace_id.in_(
-                    select(Namespace.id).where(Namespace.client_id == p.client_id)
-                )
-            )
-        return clauses, g
-
-    def mutate(self, p, key, command, callback):
-        if not key or len(key) > 180:
-            raise Error("operation.idempotency_required", "Idempotency-Key required (max 180)")
-        if p.role != "client" or p.grant_id:
-            raise Error("auth.forbidden", "Write unavailable", 403)
-        with self.sessions.begin() as db:
-            db.execute(text("SELECT pg_advisory_xact_lock_shared(874201)"))
-            # Serializes re-delivery before reading receipt; also bounds tenant quota races.
-            db.execute(
-                text("SELECT pg_advisory_xact_lock(hashtextextended(:client, 0))"),
-                {"client": p.client_id},
-            )
-            self.grant(db, p)
-            payload_hash = digest(command)
-            receipt = db.get(Receipt, (p.client_id, key))
-            if receipt:
-                if receipt.payload_hash != payload_hash:
-                    raise Error(
-                        "operation.idempotency_conflict",
-                        "Key already used for a different payload",
-                        409,
-                    )
-                return receipt.result
-            result = callback(db)
-            db.add(
-                Receipt(
-                    client_id=p.client_id,
-                    operation_key=key,
-                    payload_hash=payload_hash,
-                    result=result,
-                )
-            )
-            return result
+    def checkpoint(self, name):
+        hook = getattr(self, "fault_injector", None)
+        if hook:
+            hook(name)
 
     def event(self, db, src, event_type, **fields):
         payload = {
@@ -241,17 +123,29 @@ class Service:
     def namespace_get(self, p, id):
         with self.sessions() as db:
             ns = self.write(db, p, id)
-            return {"id": ns.id, "title": ns.title, "external_ref": ns.external_ref}
+            return {
+                "id": ns.id,
+                "title": ns.title,
+                "external_ref": ns.external_ref,
+                "revision": ns.revision,
+                "state": ns.state,
+            }
 
     def namespace_list(self, p, page_size=100, cursor=None):
         size = min(max(page_size, 1), 100)
         context = {"op": "namespaces", "page_size": size}
         state = self.cursor(p, context, cursor)
         with self.sessions() as db:
-            self.grant(db, p)
-            if p.role != "client":
+            g = self.grant(db, p, "namespace:read")
+            if p.role != "client" and not g:
                 raise Error("auth.scope_mismatch", "Client context required", 403)
-            query = select(Namespace).where(Namespace.client_id == p.client_id)
+            query = (
+                select(Namespace).where(Namespace.id == g.namespace_id)
+                if g
+                else select(Namespace).where(Namespace.client_id == p.client_id)
+            )
+            if p.context_namespace_id:
+                query = query.where(Namespace.id == p.context_namespace_id)
             if state["position"]:
                 query = query.where(Namespace.id > state["position"])
             rows = db.scalars(query.order_by(Namespace.id).limit(size + 1)).all()
@@ -267,8 +161,11 @@ class Service:
         context = {"op": "collections", "namespace_id": namespace_id, "page_size": size}
         state = self.cursor(p, context, cursor)
         with self.sessions() as db:
-            self.write(db, p, namespace_id)
+            self.write(db, p, namespace_id, action="collection:read")
             query = select(Collection).where(Collection.namespace_id == namespace_id)
+            g = self.grant(db, p)
+            if g and g.collection_id:
+                query = query.where(Collection.id == g.collection_id)
             if state["position"]:
                 query = query.where(Collection.id > state["position"])
             rows = db.scalars(query.order_by(Collection.id).limit(size + 1)).all()
@@ -282,11 +179,22 @@ class Service:
     def namespace_summary(self, p, namespace_id):
         with self.sessions() as db:
             ns = self.write(db, p, namespace_id)
+            grant = self.grant(db, p)
+            scope = (
+                Source.id.in_(
+                    select(CollectionSource.source_id).where(
+                        CollectionSource.collection_id == grant.collection_id
+                    )
+                )
+                if grant and grant.collection_id
+                else text("true")
+            )
             counts = dict(
                 db.execute(
                     select(Source.availability, func.count(Source.id))
                     .where(
                         Source.namespace_id == namespace_id,
+                        scope,
                         Source.state.in_(["registered", "stored"]),
                         Source.deleted_at.is_(None),
                     )
@@ -299,6 +207,7 @@ class Service:
                 .join(Source, Source.id == SourceVersion.source_id)
                 .where(
                     Source.namespace_id == namespace_id,
+                    scope,
                     Source.state.in_(["registered", "stored"]),
                     Source.deleted_at.is_(None),
                     ProcessingRun.status.in_(["queued", "running", "retry_wait"]),
@@ -311,7 +220,12 @@ class Service:
                 "availability_counts": counts,
                 "pending_jobs": pending,
                 "collection_count": db.scalar(
-                    select(func.count(Collection.id)).where(Collection.namespace_id == namespace_id)
+                    select(func.count(Collection.id)).where(
+                        Collection.namespace_id == namespace_id,
+                        Collection.id == grant.collection_id
+                        if grant and grant.collection_id
+                        else text("true"),
+                    )
                 ),
             }
 
@@ -331,6 +245,9 @@ class Service:
             c = db.get(Collection, cid)
             if not c or c.namespace_id != src.namespace_id:
                 raise not_found()
+            delegation = self.grant(db, p)
+            if delegation and delegation.collection_id and delegation.collection_id != cid:
+                raise not_found()
             edge = db.get(CollectionSource, (cid, sid))
             if unlink and edge:
                 db.delete(edge)
@@ -344,21 +261,48 @@ class Service:
 
         return self.mutate(p, key, {"op": "link", "cid": cid, "sid": sid, "unlink": unlink}, op)
 
-    def save_blob(self, db, namespace_id, path, mime):
-        blob = Blob(
-            namespace_id=namespace_id,
-            storage_key=f"{namespace_id}/{new_id()}",
-            sha256=file_digest(path),
-            size=Path(path).stat().st_size,
-            mime=mime,
-            provider=self.settings.storage_provider,
-        )
-        self.store.put_file(blob.storage_key, Path(path))
-        db.add(blob)
-        db.flush()
-        return blob
+    def stage_blob(self, namespace_id, path, mime, kind="put", resource_id=None):
+        from wks_core.storage.journal import stage
 
-    def add_version(self, db, src, body):
+        return stage(self, namespace_id, path, mime, kind, resource_id)
+
+    def attach_blob(self, db, journal_id, namespace_id):
+        from wks_core.storage.journal import attach
+
+        return attach(self, db, journal_id, namespace_id)
+
+    def save_blob(self, db, namespace_id, path, mime):
+        # Compatibility for internal adapters; high-volume paths stage before opening DB transactions.
+        identity = self.stage_blob(namespace_id, path, mime)
+        return self.attach_blob(db, identity, namespace_id)
+
+    def prepare_text(self, p, key, body, source_id=None):
+        if body.get("text") is None:
+            return None
+        if not key or len(key) > 180:
+            raise Error("operation.idempotency_required", "Idempotency-Key required (max 180)")
+        raw = body["text"].encode()
+        if len(raw) > self.settings.upload_max_bytes:
+            raise Error("upload.too_large", "Text exceeds limit", 413)
+        with self.sessions() as db:
+            db.info["wks_action"] = "source:version" if source_id else "source:create"
+            namespace_id = (
+                self.source(db, p, source_id, writing=True).namespace_id
+                if source_id
+                else body["namespace_id"]
+            )
+            self.write(db, p, namespace_id)
+        resource = (
+            digest({"namespace": namespace_id, "external_ref": body["external_ref"]})
+            if body.get("external_ref") and not source_id
+            else digest({"caller": p.client_id, "key": key, "source_id": source_id, "body": body})
+        )
+        with NamedTemporaryFile() as path:
+            path.write(raw)
+            path.flush()
+            return self.stage_blob(namespace_id, path.name, "text/plain", "text", resource)
+
+    def add_version(self, db, src, body, staged=None):
         revision = (
             db.scalar(
                 select(func.max(SourceVersion.revision_no)).where(SourceVersion.source_id == src.id)
@@ -366,6 +310,11 @@ class Service:
             or 0
         ) + 1
         upload = body.get("upload")
+        max_input = db.get(Namespace, src.namespace_id).policy.get(
+            "max_input_bytes", self.settings.upload_max_bytes
+        )
+        if (upload["byte_size"] if upload else len(body.get("text", "").encode())) > max_input:
+            raise Error("upload.too_large", "Namespace input budget exceeded", 413)
         v = SourceVersion(
             source_id=src.id,
             namespace_id=src.namespace_id,
@@ -380,6 +329,7 @@ class Service:
         if upload:
             if upload["byte_size"] > self.settings.upload_max_bytes:
                 raise Error("upload.too_large", "Upload exceeds limit", 413)
+            self.quota(db, src.namespace_id, upload["byte_size"])
             u = Upload(
                 source_version_id=v.id,
                 expected_sha=upload["checksum_sha256"],
@@ -396,11 +346,14 @@ class Service:
                 raw = body.get("text", "").encode()
                 if len(raw) > self.settings.upload_max_bytes:
                     raise Error("upload.too_large", "Text exceeds limit", 413)
-                self.quota(db, src.namespace_id, len(raw))
-                with NamedTemporaryFile() as f:
-                    f.write(raw)
-                    f.flush()
-                    blob = self.save_blob(db, src.namespace_id, f.name, "text/plain")
+                if not staged:
+                    raise Error(
+                        "operation.stage_required",
+                        "Text must be staged before attachment",
+                        503,
+                        True,
+                    )
+                blob = self.attach_blob(db, staged, src.namespace_id)
                 v.original_blob_id, v.checksum, v.byte_size = blob.id, blob.sha256, blob.size
                 v.media_type = "text/plain"
             v.committed = True
@@ -426,13 +379,95 @@ class Service:
           )"""),
             {"ns": namespace_id},
         )
-        if used + size > self.settings.namespace_max_bytes:
+        from wks_core.storage.stabilization import BlobOperation
+
+        reserved = db.scalar(
+            select(func.coalesce(func.sum(BlobOperation.size), 0)).where(
+                BlobOperation.namespace_id == namespace_id,
+                BlobOperation.state.in_(["proposed", "verified", "reconcile_required"]),
+                BlobOperation.kind.not_in(["part", "upload"]),
+            )
+        )
+        upload_reservations = db.scalar(
+            text(
+                """SELECT coalesce(sum(u.expected_size),0) FROM upload_sessions u JOIN source_versions v ON v.id=u.source_version_id JOIN sources s ON s.id=v.source_id WHERE v.namespace_id=:ns AND s.deleted_at IS NULL AND u.status='pending' AND u.expires_at>now() AND u.staged_blob_id IS NULL"""
+            ),
+            {"ns": namespace_id},
+        )
+        if used + reserved + upload_reservations + size > db.get(
+            Namespace, namespace_id
+        ).policy.get("max_bytes", self.settings.namespace_max_bytes):
             raise Error("upload.quota_exceeded", "Namespace storage limit reached", 413)
 
     def register(self, p, key, body):
+        from wks_core.domain.canonical import validate_metadata
+
+        try:
+            validate_metadata(body.get("metadata", {}))
+        except ValueError as exc:
+            raise Error("contract.invalid", "Invalid bounded metadata") from exc
+        self.checkpoint("source.before_prepare")
+        staged = self.prepare_text(p, key, body)
+        self.checkpoint("source.after_prepare")
+
         def op(db):
             self.write(db, p, body["namespace_id"])
+            from wks_core.domain.namespace_policy import validate_source_metadata
+
+            try:
+                validate_source_metadata(
+                    body.get("metadata", {}), db.get(Namespace, body["namespace_id"]).policy
+                )
+            except ValueError as exc:
+                raise Error(
+                    "contract.invalid", "Source metadata violates namespace policy"
+                ) from exc
+            external_ref = body.get("external_ref")
+            if external_ref:
+                db.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtextextended(:ref,42))"),
+                    {"ref": body["namespace_id"] + ":" + external_ref},
+                )
+                existing = db.scalar(
+                    select(Source).where(
+                        Source.namespace_id == body["namespace_id"],
+                        Source.external_ref == external_ref,
+                    )
+                )
+                if existing:
+                    if existing.state not in {"stored", "registered"}:
+                        raise Error(
+                            "source.external_ref_conflict", "External reference is tombstoned", 409
+                        )
+                    version = (
+                        db.get(SourceVersion, existing.current_version_id)
+                        if existing.current_version_id
+                        else None
+                    )
+                    expected = (
+                        body.get("upload", {}).get("checksum_sha256")
+                        if body.get("upload")
+                        else hashlib.sha256(body.get("text", "").encode()).hexdigest()
+                    )
+                    if version and version.checksum == expected:
+                        run = db.scalar(
+                            select(ProcessingRun)
+                            .where(ProcessingRun.source_version_id == version.id)
+                            .order_by(ProcessingRun.created_at.desc())
+                        )
+                        return {
+                            "source_id": existing.id,
+                            "source_version_id": version.id,
+                            "operation_id": run.id if run else None,
+                            "status": "stored",
+                        }
+                    raise Error(
+                        "source.external_ref_conflict",
+                        "External reference requires an explicit new revision",
+                        409,
+                    )
             src = Source(
+                external_ref=external_ref,
                 namespace_id=body["namespace_id"],
                 kind=body["kind"],
                 title=body["title"],
@@ -441,13 +476,46 @@ class Service:
                 meta=body.get("metadata", {}),
                 external_uri=body.get("external_uri"),
             )
+            self.checkpoint("source.before_insert")
             db.add(src)
             db.flush()
-            return self.add_version(db, src, body)
+            self.checkpoint("source.after_insert")
+            from wks_core.storage.stabilization import SourceMetadataRevision
+
+            db.add(
+                SourceMetadataRevision(
+                    source_id=src.id,
+                    revision=src.revision,
+                    namespace_id=src.namespace_id,
+                    value={
+                        "title": src.title,
+                        "description": src.description,
+                        "tags": src.tags,
+                        "metadata": src.meta,
+                        "origin": "client",
+                    },
+                    generation=db.get(Namespace, src.namespace_id).index_generation,
+                )
+            )
+            self.checkpoint("source.before_version")
+            result = self.add_version(db, src, body, staged)
+            self.checkpoint("source.after_version")
+            grant = self.grant(db, p)
+            if grant and grant.collection_id:
+                db.add(
+                    CollectionSource(
+                        collection_id=grant.collection_id,
+                        source_id=src.id,
+                        namespace_id=src.namespace_id,
+                    )
+                )
+            return result
 
         return self.mutate(p, key, {"op": "register", **body}, op)
 
     def new_version(self, p, key, sid, body):
+        staged = self.prepare_text(p, key, body, sid)
+
         def op(db):
             src = self.source(db, p, sid, writing=True)
             if body.get("upload") is None and body.get("text") is None:
@@ -456,7 +524,8 @@ class Service:
                     "New versions require text or upload; use capture for bookmarks",
                 )
             db.refresh(src, with_for_update=True)
-            return self.add_version(db, src, body)
+            src.revision += 1
+            return self.add_version(db, src, body, staged)
 
         return self.mutate(p, key, {"op": "version", "source_id": sid, **body}, op)
 
@@ -466,6 +535,7 @@ class Service:
             if not u:
                 raise not_found()
             v = db.get(SourceVersion, u.source_version_id)
+            db.info["wks_action"] = "upload:write"
             self.source(db, p, v.source_id, writing=True)
             if u.expires_at <= now():
                 raise Error("upload.expired", "Upload session expired", 410)
@@ -473,30 +543,55 @@ class Service:
 
     def receive(self, p, uid, path):
         checksum, size = file_digest(path), Path(path).stat().st_size
-        with self.sessions.begin() as db:
-            db.execute(text("SELECT pg_advisory_xact_lock_shared(874201)"))
-            u = db.scalar(select(Upload).where(Upload.id == uid).with_for_update())
+        with self.sessions() as db:
+            db.info["wks_action"] = "upload:write"
+            u = db.get(Upload, uid)
             if not u:
                 raise not_found()
             v = db.get(SourceVersion, u.source_version_id)
             self.source(db, p, v.source_id, writing=True)
+            if u.protocol == "offset-sha256-v1" and u.received_offset > 0:
+                raise Error(
+                    "upload.protocol_conflict", "Resume the offset protocol for this session", 409
+                )
             if size != u.expected_size:
                 raise Error("upload.incomplete", "Byte length does not match")
             if checksum != u.expected_sha:
                 raise Error("upload.checksum_mismatch", "Checksum does not match")
             if u.status in {"received", "committed"}:
                 return {"upload_id": uid, "status": u.status, "sha256": checksum}
-            if u.expires_at <= now():
+            if u.status in {"expired", "aborted"} or u.expires_at <= now():
                 raise Error("upload.expired", "Upload session expired", 410)
-            self.quota(db, v.namespace_id, size)
-            from wks_core.storage.content import detect_mime
+            namespace_id, declared = v.namespace_id, v.declared_media_type
+        from wks_core.storage.content import detect_mime
 
-            mime = detect_mime(Path(path), v.declared_media_type)
-            blob = self.save_blob(db, v.namespace_id, path, mime)
-            u.staged_blob_id, u.status = blob.id, "received"
-            return {"upload_id": uid, "status": "received", "sha256": checksum}
+        mime = detect_mime(Path(path), declared)
+        staged = self.stage_blob(namespace_id, path, mime, "upload", uid)
+        with self.sessions.begin() as db:
+            db.execute(text("SELECT pg_advisory_xact_lock_shared(874201)"))
+            db.info["wks_action"] = "upload:write"
+            u = db.scalar(select(Upload).where(Upload.id == uid).with_for_update())
+            v = db.get(SourceVersion, u.source_version_id)
+            self.source(db, p, v.source_id, writing=True)
+            if u.status in {"expired", "aborted"} or u.expires_at <= now():
+                raise Error("upload.expired", "Upload session expired", 410)
+            blob = self.attach_blob(db, staged, namespace_id)
+            u.staged_blob_id, u.status, u.received_offset = blob.id, "received", size
+            return {"upload_id": uid, "status": u.status, "sha256": checksum, "offset": size}
 
     def commit(self, p, key, uid):
+        previous = self.receipt(p, key, {"op": "commit", "upload_id": uid})
+        if previous is not None:
+            return previous
+        self.prepare_commit(p, uid)
+        with self.sessions() as preflight_db:
+            preflight_upload, _ = self.upload_record(preflight_db, p, uid, "upload:commit")
+            preflight_blob = preflight_db.get(Blob, preflight_upload.staged_blob_id)
+            self.validate_blob_provider(preflight_blob)
+            verified_blob_id, storage_key = preflight_blob.id, preflight_blob.storage_key
+        if not self.store.exists(storage_key):
+            raise Error("operation.reconcile_required", "Stored object unavailable", 503, True)
+
         def op(db):
             u = db.scalar(select(Upload).where(Upload.id == uid).with_for_update())
             if not u:
@@ -508,18 +603,25 @@ class Service:
             if not v.committed and u.expires_at <= now():
                 raise Error("upload.expired", "Upload session expired", 410)
             blob = db.get(Blob, u.staged_blob_id)
-            if not self.store.exists(blob.storage_key):
-                raise Error("operation.reconcile_required", "Stored object unavailable", 503, True)
-            from tempfile import TemporaryDirectory
+            self.validate_blob_provider(blob)
+            if blob.id != verified_blob_id:
+                raise Error(
+                    "operation.reconcile_required", "Upload changed during verification", 503, True
+                )
+            from wks_core.storage.stabilization import BlobOperation
 
-            with TemporaryDirectory() as tmp:
-                actual = Path(tmp) / "original"
-                self.store.materialize(blob.storage_key, actual)
-                if (
-                    actual.stat().st_size != u.expected_size
-                    or file_digest(actual) != u.expected_sha
-                ):
-                    raise Error("upload.checksum_mismatch", "Stored object integrity failed")
+            verified = db.scalar(
+                select(BlobOperation.id).where(
+                    BlobOperation.blob_id == blob.id, BlobOperation.state == "attached"
+                )
+            )
+            if not verified:
+                raise Error(
+                    "operation.reconcile_required",
+                    "Stored object has no verified journal",
+                    503,
+                    True,
+                )
             if not v.committed:
                 v.original_blob_id, v.checksum, v.byte_size, v.media_type = (
                     blob.id,
@@ -548,13 +650,21 @@ class Service:
                 "operation_id": run.id,
             }
 
-        return self.mutate(p, key, {"op": "commit", "upload_id": uid}, op)
+        result = self.mutate(p, key, {"op": "commit", "upload_id": uid}, op)
+        try:
+            self.cleanup_upload_parts(uid)
+        except Exception:
+            # Logical commit is authoritative; cleanup is resumable maintenance.
+            pass
+        return result
 
     def enqueue(self, db, src, v, intent):
         config = {
             k: getattr(self.settings, k)
             for k in (
                 "extraction_profile",
+                "fallback_policy",
+                "process_max_table_rows",
                 "docling_artifacts_path",
                 "ocr_enabled",
                 "ocr_language",
@@ -568,6 +678,10 @@ class Service:
                 "enrichment_provider",
             )
         }
+        if self.settings.fallback_policy == "native":
+            config["extraction_profile"] = "native"
+        elif self.settings.fallback_policy == "prefer_docling":
+            config["extraction_profile"] = "docling"
         if self.settings.asr_enabled and self.settings.asr_model_path:
             model = Path(self.settings.asr_model_path) / "model.bin"
             if model.is_file():
@@ -576,7 +690,21 @@ class Service:
             manifest = Path(self.settings.docling_artifacts_path) / "wks-model-manifest.json"
             if manifest.is_file():
                 config["docling_artifact_manifest_sha256"] = file_digest(manifest)
-        cd, pd = digest(config), digest({"wks": "0.1.0", "processor_protocol": 1})
+        from wks_core.processing import processing_queue
+        from wks_core.version import VERSION
+
+        policy = db.get(Namespace, src.namespace_id).policy
+        queue = processing_queue(v.media_type, config["extraction_profile"])
+        if queue not in policy.get("allowed_profiles", ["native", "docling", "media"]):
+            raise Error(
+                "processing.profile_forbidden",
+                "Processor profile is disabled by namespace policy",
+                403,
+            )
+        config["process_max_pages"] = min(
+            config["process_max_pages"], policy.get("max_pages", config["process_max_pages"])
+        )
+        cd, pd = digest(config), digest({"wks": VERSION, "processor_protocol": 2})
         existing = db.scalar(
             select(ProcessingRun).where(
                 ProcessingRun.source_version_id == v.id,
@@ -620,13 +748,11 @@ class Service:
 
     def source_json(self, db, src, p):
         g = self.grant(db, p, "read")
-        versions = db.scalars(
-            select(SourceVersion)
-            .where(SourceVersion.source_id == src.id)
-            .order_by(SourceVersion.revision_no)
-        ).all()
-        if g:
-            versions = [v for v in versions if v.id in g.source_version_ids]
+        query = select(SourceVersion).where(SourceVersion.source_id == src.id)
+        if g and not g.namespace_id:
+            query = query.where(SourceVersion.id.in_(g.source_version_ids))
+        rows = db.scalars(query.order_by(SourceVersion.revision_no.desc()).limit(101)).all()
+        versions = list(reversed(rows[:100]))
         current = next((v for v in versions if v.id == src.current_version_id), None)
         selected = current or (versions[-1] if versions else None)
         representation = (
@@ -654,6 +780,8 @@ class Service:
             "kind": src.kind,
             "tags": src.tags,
             "metadata": src.meta,
+            "revision": src.revision,
+            "external_ref": src.external_ref,
             "state": src.state,
             "processing": {
                 "operation_id": latest_run.id,
@@ -677,6 +805,8 @@ class Service:
                 }
                 for v in versions
             ],
+            "versions_complete": len(rows) <= 100,
+            "versions_path": f"/v1/sources/{src.id}/versions",
         }
 
     def source_get(self, p, sid):
@@ -745,7 +875,7 @@ class Service:
                     )
                     .where(version.source_id == Source.id)
                 )
-                if delegation:
+                if delegation and not delegation.namespace_id:
                     selected = selected.where(version.id.in_(delegation.source_version_ids))
                 selected = (
                     selected.order_by(
@@ -781,6 +911,12 @@ class Service:
                     )
                 )
             )
+        if filters.get("tags"):
+            stmt = stmt.where(Source.tags.contains(filters["tags"]))
+        if filters.get("metadata"):
+            if set(filters["metadata"]) - {"category", "document_type", "declared_language"}:
+                raise Error("search.filter_invalid", "Metadata filter is not indexed")
+            stmt = stmt.where(Source.meta.contains(filters["metadata"]))
         if filters.get("media_types"):
             stmt = stmt.where(SourceVersion.media_type.in_(filters["media_types"]))
         if filters.get("source_version_ids"):
@@ -791,212 +927,20 @@ class Service:
             stmt = stmt.where(SourceVersion.created_at <= filters["created_before"])
         return stmt
 
-    def search(self, p, body):
-        query = unicodedata.normalize("NFC", body["query"]).strip()
-        if (
-            not query
-            or len(query) > 1000
-            or body.get("mode", "lexical") not in {"lexical", "phrase"}
-        ):
-            raise Error(
-                "search.query_invalid", "Use a nonempty lexical query (max 1000 characters)"
-            )
-        filters = body.get("filters") or {}
-        size = min(body.get("page_size", 10), self.settings.search_max_page_size)
-        context = {"op": "search", **{k: v for k, v in body.items() if k != "cursor"}}
-        state = self.cursor(p, context, body.get("cursor"))
-        with self.sessions() as db:
-            clauses, g = self.visible(db, p, "search")
-            language = {"en": "wks_english", "simple": "wks_simple"}.get(
-                body.get("language"), "wks_portuguese"
-            )
-            f = func.phraseto_tsquery if body.get("mode") == "phrase" else func.websearch_to_tsquery
-            tsq = f(text(f"'{language}'::regconfig"), query)
-            if db.scalar(select(func.numnode(tsq))) == 0:
-                return {
-                    "query": query,
-                    "items": [],
-                    "next_cursor": None,
-                    "warning": "query_not_indexable",
-                    "index_kind": "lexical_postgresql_fts",
-                }
-            # PostgreSQL ranks are float4. Promote before serialization/comparison so
-            # keyset equality uses exactly the same value across JSON round trips.
-            rank = cast(func.ts_rank_cd(Segment.search_vector, tsq), Double).label("rank")
-            stmt = (
-                select(Segment, Source, SourceVersion, rank)
-                .join(Representation, Segment.representation_id == Representation.id)
-                .join(SourceVersion, Representation.source_version_id == SourceVersion.id)
-                .join(Source, SourceVersion.source_id == Source.id)
-                .where(
-                    *clauses,
-                    Segment.namespace_id == Source.namespace_id,
-                    Segment.search_vector.op("@@")(tsq),
-                    Representation.published_at.is_not(None),
-                )
-            )
-            stmt = self.filters(stmt, filters)
-            if filters.get("processor"):
-                stmt = stmt.where(Representation.producer["name"].astext == filters["processor"])
-            if filters.get("availability"):
-                stmt = stmt.where(Representation.availability == filters["availability"])
-            if filters.get("language"):
-                stmt = stmt.where(Segment.locale == filters["language"])
-            scope_watermark = (
-                select(Source.namespace_id, func.max(Representation.index_generation))
-                .join(SourceVersion, Representation.source_version_id == SourceVersion.id)
-                .join(Source, SourceVersion.source_id == Source.id)
-                .where(*clauses)
-                .group_by(Source.namespace_id)
-            )
-            watermark = (
-                state["watermark"]
-                if state["watermark"] is not None
-                else dict(db.execute(scope_watermark).all())
-            )
-            per_namespace_limit = cast(
-                literal(watermark, type_=JSONB)[Representation.namespace_id].astext, BigInteger
-            )
-            stmt = stmt.where(Representation.index_generation <= per_namespace_limit)
-            if filters.get("representation", "current_published") == "current_published":
-                from sqlalchemy.orm import aliased
-
-                newer = aliased(Representation)
-                stmt = stmt.where(
-                    ~exists(
-                        select(newer.id).where(
-                            newer.source_version_id == SourceVersion.id,
-                            newer.index_generation <= per_namespace_limit,
-                            newer.index_generation > Representation.index_generation,
-                        )
-                    )
-                )
-                if not g:
-                    nv, nr = aliased(SourceVersion), aliased(Representation)
-                    stmt = stmt.where(
-                        ~exists(
-                            select(nv.id)
-                            .join(nr, nr.source_version_id == nv.id)
-                            .where(
-                                nv.source_id == Source.id,
-                                nv.revision_no > SourceVersion.revision_no,
-                                nr.index_generation <= per_namespace_limit,
-                            )
-                        )
-                    )
-            if state["position"]:
-                last_rank, last_id = state["position"]
-                stmt = stmt.where(
-                    or_(rank < last_rank, and_(rank == last_rank, Segment.id > last_id))
-                )
-            rows = db.execute(stmt.order_by(rank.desc(), Segment.id).limit(size + 1)).all()
-            items, chars = [], 0
-            for seg, src, ver, score in rows[:size]:
-                snippet = seg.text[:600]
-                if items and chars + len(snippet) > self.settings.search_max_response_chars:
-                    break
-                chars += len(snippet)
-                items.append(
-                    {
-                        "source_id": src.id,
-                        "source_version_id": ver.id,
-                        "representation_id": seg.representation_id,
-                        "segment_id": seg.id,
-                        "segment_ref": f"wks://representations/{seg.representation_id}/segments/{seg.id}",
-                        "title": src.title,
-                        "snippet": snippet,
-                        "rank": float(score),
-                        "locator": seg.locator,
-                        "origin_kind": seg.origin_kind,
-                        "asset_refs": seg.asset_refs,
-                    }
-                )
-            nxt = None
-            if items and len(rows) > len(items):
-                last = rows[len(items) - 1]
-                nxt = self.cursor(
-                    p, context, None, position=[float(last[3]), last[0].id], watermark=watermark
-                )
-            return {
-                "query": query,
-                "scope": "resolved_server_side",
-                "index_kind": "lexical_postgresql_fts",
-                "items": items,
-                "next_cursor": nxt,
-                "index_generations": watermark,
-                "content_trust": "untrusted_source_data",
-            }
-
-    def representation(self, db, p, rid):
+    def representation(self, db, p, rid, action="read"):
         r = db.get(Representation, rid)
         if not r or not r.published_at:
             raise not_found()
         v = db.get(SourceVersion, r.source_version_id)
-        self.source(db, p, v.source_id, version_id=v.id)
+        self.source(db, p, v.source_id, action=action, version_id=v.id)
         return r
-
-    def read(self, p, rid, page_size=20, cursor=None, outline=False):
-        size = min(max(page_size, 1), self.settings.search_max_page_size)
-        context = {"op": "outline" if outline else "read", "rid": rid, "page_size": size}
-        state = self.cursor(p, context, cursor)
-        with self.sessions() as db:
-            r = self.representation(db, p, rid)
-            blocks = r.structure
-            if outline:
-                blocks = [
-                    {k: b[k] for k in ("id", "type", "locator", "parent_id", "asset_refs")}
-                    | {"text": b["text"][:120]}
-                    for b in blocks
-                ]
-            offset, count, output = state["position"] or 0, 0, []
-            for b in blocks[offset : offset + size]:
-                length = len(json.dumps(b, ensure_ascii=False))
-                if length > self.settings.search_max_response_chars:
-                    # Preserve the full canonical block; expose a bounded preview and explicit limit.
-                    b = {
-                        **b,
-                        "text": b["text"][:2000],
-                        "data": {
-                            "preview_only": True,
-                            "full_block_ref": f"wks://representations/{rid}/blocks/{b['id']}",
-                        },
-                    }
-                    length = len(json.dumps(b, ensure_ascii=False))
-                if output and count + length > self.settings.search_max_response_chars:
-                    break
-                output.append(b)
-                count += length
-            position = offset + len(output)
-            nxt = (
-                self.cursor(p, context, None, position=position) if position < len(blocks) else None
-            )
-            db.add(
-                Audit(
-                    actor=p.client_id,
-                    action="outline" if outline else "read",
-                    resource=rid,
-                    outcome="allowed",
-                )
-            )
-            db.commit()
-            return {
-                "representation_id": rid,
-                "source_version_id": r.source_version_id,
-                "index_generation": r.index_generation,
-                "blocks": output,
-                "markdown": markdown(output),
-                "coverage": r.coverage,
-                "warnings": r.warnings,
-                "next_cursor": nxt,
-                "content_trust": "untrusted_source_data",
-            }
 
     def outline(self, p, sid, rid=None, page_size=20, cursor=None, source_version_id=None):
         with self.sessions() as db:
             src = self.source(db, p, sid, version_id=source_version_id)
             vid = source_version_id or src.current_version_id
             g = self.grant(db, p, "read")
-            if g and vid not in g.source_version_ids:
+            if g and not g.namespace_id and vid not in g.source_version_ids:
                 vid = db.scalar(
                     select(SourceVersion.id)
                     .where(
@@ -1034,6 +978,18 @@ class Service:
                 "content_path": f"/v1/assets/{a.id}/content",
             }
 
+    def validate_blob_provider(self, blob):
+        location = self.store.location()
+        if blob.provider != self.settings.storage_provider or any(
+            blob.location.get(key) is not None and blob.location.get(key) != location.get(key)
+            for key in ("bucket", "endpoint", "region", "store_id")
+        ):
+            raise Error(
+                "storage.migration_required",
+                "Blob provider differs; run an explicit verified migration",
+                503,
+            )
+
     def binary(self, p, aid=None, sid=None, vid=None):
         with self.sessions() as db:
             if aid:
@@ -1046,6 +1002,7 @@ class Service:
                 if not v or v.source_id != sid or not v.committed or not v.original_blob_id:
                     raise not_found()
                 blob = db.get(Blob, v.original_blob_id)
+            self.validate_blob_provider(blob)
             if not self.store.exists(blob.storage_key):
                 raise Error("asset.media_not_ready", "Object unavailable", 503, True)
             return {
@@ -1053,7 +1010,34 @@ class Service:
                 "mime": blob.mime,
                 "size": blob.size,
                 "sha256": blob.sha256,
+                "source_id": v.source_id
+                if not aid
+                else db.get(
+                    SourceVersion, db.get(Representation, a.representation_id).source_version_id
+                ).source_id,
+                "source_version_id": v.id
+                if not aid
+                else db.get(Representation, a.representation_id).source_version_id,
+                "authorization_action": "asset_read",
             }
+
+    def binary_gate(self, p, blob):
+        with self.sessions() as db:
+            self.source(
+                db,
+                p,
+                blob["source_id"],
+                action=blob["authorization_action"],
+                version_id=blob["source_version_id"],
+            )
+            if blob.get("also_asset_read"):
+                self.source(
+                    db,
+                    p,
+                    blob["source_id"],
+                    action="asset_read",
+                    version_id=blob["source_version_id"],
+                )
 
     def status(self, p, oid):
         with self.sessions() as db:
@@ -1061,14 +1045,21 @@ class Service:
             if not run:
                 raise not_found()
             v = db.get(SourceVersion, run.source_version_id)
-            src = self.source(db, p, v.source_id, version_id=v.id)
+            src = self.source(db, p, v.source_id, action="operation:read", version_id=v.id)
+            selected_representation = (
+                db.get(Representation, v.current_representation_id)
+                if v.current_representation_id
+                else None
+            )
             return {
                 "operation_id": run.id,
                 "source_id": src.id,
                 "source_version_id": v.id,
                 "processing_state": run.status,
                 "current_stage": "extract_publish" if run.status == "running" else run.status,
-                "availability": src.availability,
+                "availability": selected_representation.availability
+                if selected_representation
+                else "metadata_only",
                 "coverage": run.coverage,
                 "published_representation_id": run.published_representation_id,
                 "attempt": run.attempt,
@@ -1078,11 +1069,26 @@ class Service:
             }
 
     def grant_create(self, p, key, body):
+        from wks_core.domain.policies import validate_delegation
+
+        try:
+            validate_delegation(body)
+        except ValueError as exc:
+            raise Error("auth.scope_invalid", "Invalid delegation policy") from exc
+
         def op(db):
             caller = db.get(Client, body["caller_binding"])
             if not caller or caller.role != "executor" or caller.audience != body["audience"]:
                 raise Error("auth.scope_mismatch", "Unknown caller or audience")
-            for vid in body["source_version_ids"]:
+            namespace_id = body.get("namespace_id")
+            collection_id = body.get("collection_id")
+            if namespace_id:
+                self.write(db, p, namespace_id)
+                if collection_id:
+                    collection = db.get(Collection, collection_id)
+                    if not collection or collection.namespace_id != namespace_id:
+                        raise not_found()
+            for vid in body.get("source_version_ids", []):
                 v = db.get(SourceVersion, vid)
                 if not v or not v.committed:
                     raise not_found()
@@ -1091,7 +1097,9 @@ class Service:
                 issuer=p.client_id,
                 caller_binding=caller.id,
                 audience=body["audience"],
-                source_version_ids=body["source_version_ids"],
+                source_version_ids=body.get("source_version_ids", []),
+                namespace_id=namespace_id,
+                collection_id=collection_id,
                 allowed_actions=body["allowed_actions"],
                 purpose=body["purpose"],
                 expires_at=now() + timedelta(seconds=body["ttl_seconds"]),
@@ -1104,21 +1112,71 @@ class Service:
         return self.mutate(p, key, {"op": "grant", **body}, op)
 
     def grant_revoke(self, p, key, gid):
+        previous = self.receipt(p, key, {"op": "grant_revoke", "id": gid})
+        if previous:
+            return previous
+        if not key or len(key) > 180:
+            raise Error("operation.idempotency_required", "Idempotency-Key required (max 180)")
+        with self.sessions() as check:
+            self.grant(check, p)
+            record = check.get(Grant, gid)
+            if not record or record.issuer != p.client_id or p.grant_id:
+                raise not_found()
+
         def op(db):
             g = db.get(Grant, gid)
             if not g or g.issuer != p.client_id:
                 raise not_found()
+            self.privacy_ledger.append("grant_revoked", gid)
             g.revoked_at = now()
             return {"id": gid, "revoked": True}
 
         return self.mutate(p, key, {"op": "grant_revoke", "id": gid}, op)
 
-    def revoke(self, p, key, sid, purge=False):
+    def revoke(self, p, key, sid, purge=False, confirmation_token=None):
+        if not key or len(key) > 180:
+            raise Error("operation.idempotency_required", "Idempotency-Key required (max 180)")
+        command = {"op": "delete" if purge else "revoke", "sid": sid}
+        previous = self.receipt(p, key, command)
+        if previous:
+            if purge:
+                self.purge_source(sid)
+            return previous
+        with self.sessions() as check:
+            check.info["wks_action"] = "source:delete" if purge else "source:revoke"
+            source = check.get(Source, sid)
+            if not source:
+                raise not_found()
+            self.write(check, p, source.namespace_id)
+            delegation = self.grant(check, p)
+            if (
+                delegation
+                and delegation.collection_id
+                and not check.get(CollectionSource, (delegation.collection_id, sid))
+            ):
+                raise not_found()
+            if delegation or confirmation_token:
+                self.confirm_preflight(
+                    check, p, source, "delete" if purge else "revoke", confirmation_token
+                )
+
         def op(db):
-            src = db.get(Source, sid)
+            src = db.get(Source, sid, with_for_update=True)
             if not src:
                 raise not_found()
             self.write(db, p, src.namespace_id)
+            delegation = self.grant(db, p)
+            if (
+                delegation
+                and delegation.collection_id
+                and not db.get(CollectionSource, (delegation.collection_id, sid))
+            ):
+                raise not_found()
+            if delegation or confirmation_token:
+                self.confirm_preflight(
+                    db, p, src, "delete" if purge else "revoke", confirmation_token
+                )
+            self.privacy_ledger.append("source_deleted" if purge else "source_revoked", sid)
             src.state = "revoked"
             src.deleted_at = now() if purge else None
             db.execute(
@@ -1138,13 +1196,13 @@ class Service:
             )
             return {"source_id": sid, "state": "deleted" if purge else src.state}
 
-        result = self.mutate(p, key, {"op": "delete" if purge else "revoke", "sid": sid}, op)
+        result = self.mutate(p, key, command, op)
         if purge:
             self.purge_source(sid)
         return result
 
     def purge_source(self, sid):
-        # Tombstones survive, bytes and derived text do not. Retriable after any interruption.
+        # Logical removal commits before IO; snapshot pins retain recoverable bytes.
         with self.sessions.begin() as db:
             db.execute(text("SELECT pg_advisory_xact_lock_shared(874201)"))
             src = db.get(Source, sid)
@@ -1161,21 +1219,44 @@ class Service:
             for v in versions:
                 v.current_representation_id = None
             db.flush()
-            blob_ids = {a.blob_id for a in assets} | {
-                v.original_blob_id for v in versions if v.original_blob_id
-            }
+            from wks_core.storage.stabilization import ExportArtifact
+
+            export_blobs = set(
+                db.scalars(
+                    select(ExportArtifact.blob_id).where(
+                        ExportArtifact.representation_id.in_(rids),
+                        ExportArtifact.blob_id.is_not(None),
+                    )
+                ).all()
+            )
+            blob_ids = (
+                export_blobs
+                | {a.blob_id for a in assets}
+                | {v.original_blob_id for v in versions if v.original_blob_id}
+            )
             # Include validated but uncommitted uploads when deleting a source.
             from wks_core.storage.database import Upload
 
             uploads = db.scalars(select(Upload).where(Upload.source_version_id.in_(vids))).all()
             blob_ids |= {u.staged_blob_id for u in uploads if u.staged_blob_id}
-            for bid in blob_ids:
-                blob = db.get(Blob, bid)
-                if blob:
-                    self.store.delete(blob.storage_key)
+            from wks_core.storage.retirement import retire
+
+            retire(db, sid, blob_ids)
             db.execute(delete(Segment).where(Segment.representation_id.in_(rids)))
             db.execute(delete(Asset).where(Asset.representation_id.in_(rids)))
             db.execute(delete(Representation).where(Representation.id.in_(rids)))
+            from wks_core.storage.stabilization import SourceMetadataRevision
+
+            db.execute(
+                delete(SourceMetadataRevision).where(SourceMetadataRevision.source_id == sid)
+            )
+            db.execute(
+                text(
+                    "UPDATE idempotency_receipts SET result=jsonb_build_object('source_id',:sid,'state','deleted','write_outcome','confirmed') WHERE result->>'id'=:sid OR result->>'source_id'=:sid"
+                ),
+                {"sid": sid},
+            )
+            src.external_ref = None
             src.title, src.description, src.meta, src.tags, src.external_uri = (
                 "[deleted]",
                 "",
@@ -1185,9 +1266,16 @@ class Service:
             )
             for v in versions:
                 v.original_filename, v.external_uri = None, None
-            src.state = "deleted"
-            if not already_deleted:
-                self.event(db, src, "source.deleted")
+            src.state = "deleted" if already_deleted else "revoked"
+        from wks_core.storage.retirement import reconcile_source
+
+        if reconcile_source(self, sid):
+            with self.sessions.begin() as db:
+                db.execute(text("SELECT pg_advisory_xact_lock_shared(874201)"))
+                src = db.get(Source, sid, with_for_update=True)
+                if src and src.deleted_at and src.state != "deleted":
+                    src.state = "deleted"
+                    self.event(db, src, "source.deleted")
 
     def validate_ref(self, p, ref):
         """Citation verification is authoritative, never a syntax-only acceptance."""
@@ -1197,6 +1285,8 @@ class Service:
         parts = u.path.strip("/").split("/")
         if u.scheme != "wks":
             raise not_found()
+        if u.netloc == "representations" and len(parts) == 1:
+            return self.representation_metadata(p, parts[0]) | {"verified": True}
         if u.netloc == "assets" and len(parts) == 1:
             return self.asset_metadata(p, parts[0])
         if u.netloc == "sources" and len(parts) == 3 and parts[1] == "versions":
@@ -1220,7 +1310,14 @@ class Service:
                         raise not_found()
                     locator = seg.locator
                 else:
-                    b = next((b for b in r.structure if b["id"] == parts[2]), None)
+                    from wks_core.storage.stabilization import RepresentationBlock
+
+                    b = db.scalar(
+                        select(RepresentationBlock.value).where(
+                            RepresentationBlock.representation_id == r.id,
+                            RepresentationBlock.block_id == parts[2],
+                        )
+                    )
                     if not b:
                         raise not_found()
                     locator = b["locator"]

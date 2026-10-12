@@ -1,9 +1,10 @@
 [project]
 name = "wks-worker"
-version = "0.3.0"
+version = "1.0.0rc1"
 description = "WKS isolated worker processing runtime"
+license = "Apache-2.0"
 requires-python = ">=3.12"
-dependencies = ["wks-core==0.3.0"]
+dependencies = ["wks-core==1.0.0rc1", "prometheus-client>=0.21,<1"]
 
 [project.scripts]
 wks-worker = "wks_worker.cli:main"

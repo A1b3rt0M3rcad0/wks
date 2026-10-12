@@ -14,6 +14,9 @@ def detect_mime(path, declared="application/octet-stream"):
         (b"\x89PNG\r\n\x1a\n", "image/png"),
         (b"\xff\xd8\xff", "image/jpeg"),
         (b"GIF8", "image/gif"),
+        (b"II*\0", "image/tiff"),
+        (b"MM\0*", "image/tiff"),
+        (b"BM", "image/bmp"),
         (b"ID3", "audio/mpeg"),
         (b"fLaC", "audio/flac"),
         (b"OggS", "audio/ogg"),
@@ -36,6 +39,15 @@ def detect_mime(path, declared="application/octet-stream"):
         try:
             with zipfile.ZipFile(path) as z:
                 names = z.namelist()
+                if "mimetype" in names and z.getinfo("mimetype").file_size <= 256:
+                    archive_mime = z.read("mimetype").decode("ascii", errors="replace").strip()
+                    if archive_mime in {
+                        "application/epub+zip",
+                        "application/vnd.oasis.opendocument.spreadsheet",
+                    }:
+                        return archive_mime
+                if "xl/workbook.xml" in names:
+                    return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 if any(n.startswith("word/") for n in names):
                     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 if any(n.startswith("ppt/") for n in names):
@@ -48,6 +60,14 @@ def detect_mime(path, declared="application/octet-stream"):
         try:
             head.decode("utf-8")
             if declared in {
+                "application/xml",
+                "text/xml",
+                "application/javascript",
+                "text/javascript",
+                "text/x-python",
+                "text/x-shellscript",
+                "text/x-c",
+                "text/x-c++",
                 "text/plain",
                 "text/markdown",
                 "text/csv",

@@ -1,0 +1,16 @@
+{
+  "dataset": "wks-synthetic-lexical-v1",
+  "license": "CC0-1.0",
+  "documents": [
+    {"id": "physics-pt", "title": "Eletricidade", "text": "A resistência elétrica limita a corrente em um circuito paralelo."},
+    {"id": "physics-en", "title": "Electrical engineering", "text": "Electrical resistance limits current in a parallel circuit."},
+    {"id": "history", "title": "Biblioteca", "text": "A biblioteca registra fontes históricas e preserva seus documentos."},
+    {"id": "chemistry", "title": "Química", "text": "A água evapora quando recebe calor suficiente."}
+  ],
+  "queries": [
+    {"id": "pt-stemming", "query": "resistência", "language": "pt", "relevance": {"physics-pt": 3}},
+    {"id": "english-phrase", "query": "parallel circuit", "language": "simple", "mode": "phrase", "relevance": {"physics-en": 3}},
+    {"id": "unicode-history", "query": "históricas", "language": "pt", "relevance": {"history": 3}},
+    {"id": "chemistry", "query": "calor", "language": "pt", "relevance": {"chemistry": 3}}
+  ]
+}

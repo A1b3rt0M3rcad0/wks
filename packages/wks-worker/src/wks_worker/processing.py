@@ -46,7 +46,7 @@ def main():
 
     path, mime, config_path, destination = sys.argv[1:]
     config = json.loads(Path(config_path).read_text())
-    settings = Settings(**config)
+    settings = Settings(_env_file=None, **config)
     import resource
 
     memory_limit = settings.process_max_memory_mb * 1024 * 1024
@@ -54,7 +54,16 @@ def main():
     cpu_limit = settings.processing_timeout_seconds + 5
     resource.setrlimit(resource.RLIMIT_CPU, (cpu_limit, cpu_limit + 5))
     try:
+        from wks_worker.sandbox import restrict
+
+        model_paths = [
+            value for value in (settings.docling_artifacts_path, settings.asr_model_path) if value
+        ]
+        sandbox = restrict(
+            destination, model_paths, filesystem_required=settings.decoder_sandbox == "strict"
+        )
         result = processor(settings, mime).extract(Path(path), mime)
+        result.coverage["sandbox"] = {"state": "active", **sandbox}
         data = asdict(result)
         for asset in data["assets"]:
             target = Path(destination) / asset["id"]

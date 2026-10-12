@@ -5,7 +5,6 @@ from pathlib import Path
 from wks_core.domain.models import Block, ExtractedAsset, ExtractedRepresentation
 from wks_core.storage.content import validate_zip
 from wks_worker.processing import text_blocks
-from wks_worker_native.processing import OfficeProcessor, PDFProcessor
 
 
 class DoclingProcessor:
@@ -140,13 +139,23 @@ class DoclingWithFallback:
         self.settings = settings
 
     def extract(self, path, mime):
+        if self.settings.fallback_policy == "native":
+            from wks_worker_native.processing import processor
+
+            return processor(self.settings, mime).extract(path, mime)
         try:
             return DoclingProcessor(self.settings).extract(path, mime)
         except Exception:
+            if self.settings.fallback_policy == "strict":
+                from wks_core.domain.models import Error
+
+                raise Error(
+                    "processing.docling_unavailable", "Strict processing profile failed"
+                ) from None
             # Model downloads/provider outages cannot erase deterministic native text.
-            fallback = (
-                PDFProcessor(self.settings) if mime == "application/pdf" else OfficeProcessor()
-            )
+            from wks_worker_native.processing import processor
+
+            fallback = processor(self.settings, mime)
             out = fallback.extract(path, mime)
             out.warnings.append("docling_unavailable_native_fallback_used")
             out.coverage["layout"] = {"state": "pending"}

@@ -68,9 +68,16 @@ class ImageProcessor:
     def extract(self, path, mime):
         Image.MAX_IMAGE_PIXELS = 40_000_000
         with Image.open(path) as img:
+            dimensions = {
+                "width": img.width,
+                "height": img.height,
+                "frames": getattr(img, "n_frames", 1),
+            }
             img.verify()
         data = path.read_bytes()
-        a = ExtractedAsset(data, mime, "image", {"kind": "image", "value": "original"})
+        a = ExtractedAsset(
+            data, mime, "image", {"kind": "image", "value": "original", **dimensions}
+        )
         b = Block("picture_ref", locator=a.locator, asset_refs=[f"wks://assets/{a.id}"])
         result = ExtractedRepresentation(
             blocks=[b],
@@ -281,6 +288,28 @@ class UnsupportedProcessor:
 
 
 def processor(settings, mime):
+    from wks_worker_native.structured import (
+        EPUBProcessor,
+        SpreadsheetProcessor,
+        StructuredTextProcessor,
+    )
+
+    if mime == "application/epub+zip":
+        return EPUBProcessor(settings)
+    if "spreadsheetml" in mime or mime == "application/vnd.oasis.opendocument.spreadsheet":
+        return SpreadsheetProcessor(settings)
+    if mime in {
+        "application/xml",
+        "text/xml",
+        "text/html",
+        "application/javascript",
+        "text/javascript",
+        "text/x-python",
+        "text/x-shellscript",
+        "text/x-c",
+        "text/x-c++",
+    }:
+        return StructuredTextProcessor()
     if mime == "application/pdf":
         return PDFProcessor(settings)
     if "openxmlformats" in mime:

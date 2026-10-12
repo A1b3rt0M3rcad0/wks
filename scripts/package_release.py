@@ -11,6 +11,7 @@ import tempfile
 import tomllib
 from pathlib import Path
 
+from distribution import build_clients, inventory
 from release_identity import source_floor
 from version import python_version, semver_key, validate
 
@@ -22,6 +23,7 @@ PACKAGES = [
     "wks-worker-native",
     "wks-worker-docling",
     "wks-worker-media",
+    "wks-sdk-python",
 ]
 
 
@@ -157,6 +159,8 @@ def build(version, revision, destination):
                 env=environment,
             )
         (destination / "openapi.json").write_bytes(contract.read_bytes())
+        toolchain = build_clients(staging, destination, version, revision, epoch, environment)
+        inventory(staging, destination, version, revision, toolchain)
 
         def normalize(info):
             info.uid = info.gid = 0

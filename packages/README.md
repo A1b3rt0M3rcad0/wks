@@ -1,7 +1,7 @@
 # Pacotes WKS
 
 A organização segue as fronteiras do WOS, consultado somente para leitura. O workspace
-Python contém seis pacotes instaláveis e versionados juntos:
+Python contém sete pacotes instaláveis e versionados juntos:
 
 | Pacote | Responsabilidade | Executável |
 | --- | --- | --- |
@@ -11,6 +11,7 @@ Python contém seis pacotes instaláveis e versionados juntos:
 | `wks-worker-native` | Texto, PDF, OCR, Office, imagens e HTML | `wks-worker-native` |
 | `wks-worker-docling` | Layout/tabelas de PDF e Office, com fallback nativo explícito | `wks-worker-docling` |
 | `wks-worker-media` | Áudio, transcrição local e frames/transcrição de vídeo | `wks-worker-media` |
+| `wks-sdk-python` | Cliente HTTP independente, sem imports de servidor | — |
 
 A API depende somente do Core entre os pacotes WKS. Core não importa API, workers,
 transportes ou decoders. O runtime dos workers depende do Core; os perfis dependem do
@@ -30,3 +31,6 @@ filas cujo pacote não está instalado antes de assumir qualquer job. `wks worke
 Os assets permanecem no wheel da API. Migrações, Compose e testes de integração ficam
 na raiz, pois coordenam o schema e o deployment. Node é somente ferramenta de testes.
 Veja [operação dos workers](../docs/WORKERS.md) para instalação, filas, modelos e escala.
+
+Os módulos Go `wks-sdk-go` e `wksctl` são consumidores HTTP independentes. O CLI
+não exige Python nem acesso ao banco/storage; consulte [CLI](../docs/CLI.md).

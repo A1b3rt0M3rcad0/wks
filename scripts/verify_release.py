@@ -7,6 +7,7 @@ import zipfile
 from email.parser import Parser
 from pathlib import Path
 
+from distribution import TARGETS
 from package_release import PACKAGES
 from version import python_version, validate
 
@@ -25,6 +26,18 @@ def verify(directory, version, revision, manifest_hash=None):
     if (manifest["version"], manifest["commit"]) != (version, revision):
         raise ValueError("Candidate release identity differs")
     names = set(manifest["files"])
+    required = {
+        "LICENSE",
+        "NOTICE",
+        "THIRD_PARTY_NOTICES.md",
+        "sbom.cdx.json",
+        "toolchain.json",
+    } | {
+        f"wksctl-{version}-{system}-{arch}." + ("zip" if system == "windows" else "tar.gz")
+        for system, arch in TARGETS
+    }
+    if not required <= names:
+        raise ValueError("Candidate requires licenses, SBOM and every standalone client target")
     if names | {"SHA256SUMS", "release-manifest.json"} != {
         path.name for path in directory.iterdir()
     }:
@@ -59,6 +72,8 @@ def verify(directory, version, revision, manifest_hash=None):
             wheel_names.add(metadata["Name"])
             if metadata["Version"] != pep_version:
                 raise ValueError("Wheel version differs")
+            if metadata.get("License-Expression") != "Apache-2.0":
+                raise ValueError("WKS package license must be Apache-2.0")
             requirements = metadata.get_all("Requires-Dist", [])
             for requirement in requirements:
                 for package in PACKAGES:

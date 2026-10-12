@@ -1,0 +1,19 @@
+{
+  "license": "CC0-1.0",
+  "kind": "synthetic functional fixtures; not document-quality certification",
+  "files": {
+    "budget.ods": "ee7d1c7b6ad040f26877107b7557118daafba31ed7ff1489aa77c3218a229bb0",
+    "budget.xlsx": "6077cd24cf61fd5c2693acc66230b305a452f50a178c6b4b1ebe19e97a4d7ce6",
+    "circuit.bmp": "764aef0c003a37e86435dee353a5de9c7b32a2e9fd7240a8e31255dc0948b764",
+    "circuit.csv": "dee35c0972f3e0bd22fc9c4f3c2f8fa88237fc2949d0b0e71c27e3602b4eeb99",
+    "circuit.epub": "af8282781caa40f42bfc8702dda6d93f181ab42a5f06c8660bcd182dd89d0024",
+    "circuit.html": "680e5cf609698b880ad8da823dab83ebcf73fd679479baa15effadf645d007e9",
+    "circuit.jpg": "a3c7a4b79709f431bdeac5a3e6ad62cedadd94675c90edc96225255755d8dd0b",
+    "circuit.json": "7f4e890aa47b692df78533f15b6fa86a640706bdee1d4265498ef0d275841dd9",
+    "circuit.tiff": "82204a84b094732ec87a8b5554e4a18e45d7d33daaf31dd1d3931d95c21df7cf",
+    "circuit.webp": "e47f66e784fa53e2f07b9c941c556c5b5acb80c3062850459e42e802fbd9e6ee",
+    "circuit.xml": "05fce893244e28a49632b50bb932075312a3abfb8c1bdc6fcafdadc43ce7f5fc",
+    "circuit.yaml": "90edaf1302f9651257226cd414aa5b5b64b705814ac3f8fa9776e598d0de7e75",
+    "code.py": "8d07950299948d2e48ebd9fb81af4841e2fb030fbaef3c77ab5958982df5c3a0"
+  }
+}

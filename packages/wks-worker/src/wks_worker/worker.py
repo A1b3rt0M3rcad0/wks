@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import secrets
 import signal
 import subprocess
 import sys
@@ -12,12 +13,14 @@ from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from sqlalchemy import and_, func, or_, select, text
-from wks_core.application.service import digest, file_digest, markdown
+from sqlalchemy import Text, and_, cast, func, literal, or_, select, text
+from sqlalchemy.dialects.postgresql import JSONB
+from wks_core.application.utilities import digest, file_digest, markdown
 from wks_core.domain.models import Block, Error, ExtractedAsset, ExtractedRepresentation, new_id
 from wks_core.storage.database import (
     Asset,
     Blob,
+    Namespace,
     ProcessingRun,
     Representation,
     Segment,
@@ -34,40 +37,144 @@ class Worker:
 
         self.service, self.owner = service, owner or new_id()
         self.queues = validate_queues(queues or available_queues())
+        self.last_announce = 0
+        self.announce()
+
+    def announce(self):
+        from importlib.metadata import version
+        from importlib.util import find_spec
+        from pathlib import Path
+        from shutil import which
+
+        from wks_core.storage.stabilization import WorkerHeartbeat
+
+        if time.monotonic() - self.last_announce < 30:
+            return
+        from wks_worker.sandbox import availability
+
+        isolation = availability()
+        settings = self.service.settings
+        decoder_ready = isolation["network"] and (
+            settings.decoder_sandbox != "strict" or isolation["filesystem"]
+        )
+        asr_ready = bool(
+            settings.asr_enabled
+            and settings.asr_model_path
+            and (Path(settings.asr_model_path) / "model.bin").is_file()
+            and find_spec("faster_whisper")
+        )
+        video_ready = bool(settings.video_enabled and which("ffmpeg"))
+        docling_ready = bool(
+            settings.docling_artifacts_path
+            and (Path(settings.docling_artifacts_path) / "wks-model-manifest.json").is_file()
+            and find_spec("docling")
+        )
+        ready_queues = [
+            queue
+            for queue in self.queues
+            if decoder_ready
+            and (
+                queue == "native"
+                or queue == "media"
+                and (asr_ready or video_ready)
+                or queue == "docling"
+                and docling_ready
+            )
+        ]
+        with self.service.sessions.begin() as db:
+            row = db.get(WorkerHeartbeat, self.owner)
+            if not row:
+                row = WorkerHeartbeat(owner=self.owner)
+                db.add(row)
+            row.queues = list(self.queues)
+            row.capabilities = {
+                "ready": bool(ready_queues),
+                "ready_queues": ready_queues,
+                "sandbox": isolation,
+                "runtime_version": version("wks-worker"),
+                "profiles": {queue: version("wks-worker-" + queue) for queue in self.queues},
+                "ocr_enabled": settings.ocr_enabled and bool(which("tesseract")),
+                "asr_enabled": asr_ready,
+                "video_enabled": video_ready,
+            }
+            row.updated_at = now()
+        self.last_announce = time.monotonic()
 
     def claim(self):
-        with self.service.sessions.begin() as db:
-            eligible = or_(
-                ProcessingRun.status == "queued",
-                and_(ProcessingRun.status == "retry_wait", ProcessingRun.next_retry_at <= now()),
-                and_(ProcessingRun.status == "running", ProcessingRun.deadline < now()),
+        from sqlalchemy.orm import aliased
+
+        eligible = or_(
+            ProcessingRun.status == "queued",
+            and_(ProcessingRun.status == "retry_wait", ProcessingRun.next_retry_at <= now()),
+            and_(ProcessingRun.status == "running", ProcessingRun.deadline < now()),
+        )
+        peer = aliased(ProcessingRun)
+        recent = (
+            select(func.max(peer.heartbeat))
+            .where(
+                peer.namespace_id == ProcessingRun.namespace_id, peer.queue == ProcessingRun.queue
             )
-            run = db.scalar(
-                select(ProcessingRun)
+            .correlate(ProcessingRun)
+            .scalar_subquery()
+        )
+        with self.service.sessions() as db:
+            candidates = db.scalars(
+                select(ProcessingRun.id)
                 .where(eligible, ProcessingRun.queue.in_(self.queues))
-                .order_by(ProcessingRun.created_at)
-                .with_for_update(skip_locked=True)
-                .limit(1)
-            )
-            if not run:
-                return None
-            if run.attempt >= self.service.settings.job_max_attempts:
-                run.status, run.error_code = "failed", "processing.retry_exhausted"
-                return None
-            run.lease_generation += 1
-            run.lease_token, run.owner = new_id(), self.owner
-            run.deadline = now() + timedelta(seconds=self.service.settings.job_lease_seconds)
-            run.heartbeat, run.updated_at, run.status = now(), now(), "running"
-            run.attempt += 1
-            return {
-                "id": run.id,
-                "token": run.lease_token,
-                "generation": run.lease_generation,
-                "config": run.config,
-                "queue": run.queue,
-                "version_id": run.source_version_id,
-                "attempt": run.attempt,
-            }
+                .order_by(recent.asc().nullsfirst(), ProcessingRun.created_at, ProcessingRun.id)
+                .limit(16)
+            ).all()
+        # Lock one candidate at a time. Locking the whole candidate page prevents
+        # other workers from claiming distinct jobs in the same namespace.
+        for identity in candidates:
+            with self.service.sessions.begin() as db:
+                run = db.scalar(
+                    select(ProcessingRun)
+                    .where(
+                        ProcessingRun.id == identity, eligible, ProcessingRun.queue.in_(self.queues)
+                    )
+                    .with_for_update(skip_locked=True)
+                )
+                if not run:
+                    continue
+                db.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtextextended(:ns,72))"),
+                    {"ns": run.namespace_id},
+                )
+                namespace = db.get(Namespace, run.namespace_id)
+                limit = namespace.policy.get(
+                    "max_concurrent_jobs", self.service.settings.namespace_max_concurrent_jobs
+                )
+                count = db.scalar(
+                    select(func.count(ProcessingRun.id)).where(
+                        ProcessingRun.namespace_id == run.namespace_id,
+                        ProcessingRun.queue == run.queue,
+                        ProcessingRun.status == "running",
+                        ProcessingRun.deadline > now(),
+                        ProcessingRun.id != run.id,
+                    )
+                )
+                if count >= limit:
+                    continue
+                if run.attempt >= self.service.settings.job_max_attempts:
+                    run.status, run.error_code = "failed", "processing.retry_exhausted"
+                    continue
+                run.lease_generation += 1
+                run.lease_token, run.owner = new_id(), self.owner
+                run.deadline = now() + timedelta(seconds=self.service.settings.job_lease_seconds)
+                run.heartbeat, run.updated_at, run.status = now(), now(), "running"
+                run.attempt += 1
+                return {
+                    "id": run.id,
+                    "token": run.lease_token,
+                    "generation": run.lease_generation,
+                    "config": run.config,
+                    "queue": run.queue,
+                    "version_id": run.source_version_id,
+                    "namespace_id": run.namespace_id,
+                    "attempt": run.attempt,
+                }
+        return None
 
     def heartbeat(self, lease):
         with self.service.sessions.begin() as db:
@@ -92,6 +199,18 @@ class Worker:
         )
 
     def publish(self, lease, result):
+        namespace_id = lease.get("namespace_id")
+        if not namespace_id:
+            with self.service.sessions() as session:
+                namespace_id = session.get(ProcessingRun, lease["id"]).namespace_id
+        staged_assets = {}
+        for asset in result.assets:
+            with TemporaryDirectory() as temp:
+                path = Path(temp) / "asset"
+                path.write_bytes(asset.content)
+                staged_assets[asset.id] = self.service.stage_blob(
+                    namespace_id, path, asset.media_type, "asset", asset.id
+                )
         with self.service.sessions.begin() as db:
             db.execute(text("SELECT pg_advisory_xact_lock_shared(874201)"))
             run = db.scalar(
@@ -131,7 +250,10 @@ class Worker:
                     data={"level": 1},
                 ),
             )
-            blocks = [asdict(b) for b in result.blocks]
+            from wks_core.domain.canonical import validate_block
+            from wks_core.storage.stabilization import RepresentationBlock
+
+            blocks = [validate_block(asdict(b), ordinal) for ordinal, b in enumerate(result.blocks)]
             rid = new_id()
             generation = db.scalar(
                 text(
@@ -145,6 +267,22 @@ class Worker:
                 "config_digest": run.config_digest,
                 "processor_digest": run.processor_digest,
             }
+            from wks_core.domain.searching import language_hint
+
+            language, language_origin = language_hint(
+                " ".join(block["text"] for block in blocks)[:8000],
+                src.meta.get("declared_language"),
+            )
+            result.coverage["language"] = {
+                "value": language,
+                "origin": language_origin,
+                "state": "declared" if language_origin == "declared" else "inferred",
+            }
+            result.coverage.setdefault("quality", {"state": "not_measured"})
+            from importlib.metadata import version
+
+            producer["runtime_version"] = version("wks-worker")
+            producer["profile_version"] = version("wks-worker-" + lease.get("queue", "native"))
             rep = Representation(
                 id=rid,
                 namespace_id=src.namespace_id,
@@ -161,16 +299,28 @@ class Worker:
             )
             db.add(rep)
             db.flush()
+            for block in blocks:
+                db.add(
+                    RepresentationBlock(
+                        representation_id=rid,
+                        ordinal=block["ordinal"],
+                        block_id=block["id"],
+                        kind=block["type"],
+                        parent_id=block.get("parent_id"),
+                        value=block,
+                        checksum=func.encode(
+                            func.sha256(
+                                func.convert_to(cast(literal(block, type_=JSONB), Text), "UTF8")
+                            ),
+                            "hex",
+                        ),
+                    )
+                )
             if original:
                 original.representation_id = rid
                 db.add(original)
-            asset_size = sum(len(a.content) for a in result.assets)
-            self.service.quota(db, src.namespace_id, asset_size)
             for a in result.assets:
-                with TemporaryDirectory() as temp:
-                    path = Path(temp) / "asset"
-                    path.write_bytes(a.content)
-                    blob = self.service.save_blob(db, src.namespace_id, path, a.media_type)
+                blob = self.service.attach_blob(db, staged_assets[a.id], src.namespace_id)
                 db.add(
                     Asset(
                         id=a.id,
@@ -182,14 +332,6 @@ class Worker:
                         caption=a.caption,
                     )
                 )
-            declared = src.meta.get("declared_language", "pt")
-            language = (
-                "en"
-                if declared.startswith("en")
-                else "pt"
-                if declared.startswith("pt")
-                else "simple"
-            )
             config = {"en": "wks_english", "pt": "wks_portuguese", "simple": "wks_simple"}[language]
             for ordinal, b in enumerate(blocks):
                 if not b["text"].strip():
@@ -202,14 +344,13 @@ class Worker:
                             func.setweight(
                                 func.to_tsvector(
                                     text(f"'{config}'::regconfig"),
-                                    unicodedata.normalize("NFC", src.title),
-                                ),
-                                text("'A'::\"char\""),
-                            ).op("||")(
-                                func.to_tsvector(
-                                    text(f"'{config}'::regconfig"),
                                     unicodedata.normalize("NFC", value),
-                                )
+                                ),
+                                text(
+                                    "'A'::\"char\""
+                                    if b["origin_kind"] == "metadata"
+                                    else "'D'::\"char\""
+                                ),
                             )
                         )
                     )
@@ -259,7 +400,7 @@ class Worker:
             if retryable and run.attempt < self.service.settings.job_max_attempts:
                 run.status, run.next_retry_at = (
                     "retry_wait",
-                    now() + timedelta(seconds=2**run.attempt),
+                    now() + timedelta(seconds=2**run.attempt + secrets.randbelow(1000) / 1000),
                 )
             else:
                 run.status = "failed"
@@ -275,9 +416,10 @@ class Worker:
             )
 
     def run_once(self):
+        self.announce()
         lease = self.claim()
         if not lease:
-            return False
+            return self.service.export_run_once() if "native" in self.queues else False
         stop = threading.Event()
 
         def heartbeats():
@@ -312,62 +454,86 @@ class Worker:
             with self.service.sessions() as db:
                 v = db.get(SourceVersion, lease["version_id"])
                 blob = db.get(Blob, v.original_blob_id) if v.original_blob_id else None
-                if not blob:
-                    result = ExtractedRepresentation(
-                        processor_name="bookmark",
-                        availability="metadata_only",
-                        coverage={"text": {"state": "bookmark_only"}},
+            if not blob:
+                result = ExtractedRepresentation(
+                    processor_name="bookmark",
+                    availability="metadata_only",
+                    coverage={"text": {"state": "bookmark_only"}},
+                )
+            else:
+                with TemporaryDirectory() as temp:
+                    path, config_path = Path(temp) / "input", Path(temp) / "config.json"
+                    self.service.store.materialize(blob.storage_key, path)
+                    if file_digest(path) != v.checksum:
+                        raise Error("processing.checksum_mismatch", "Original integrity failed")
+                    config_path.write_text(
+                        json.dumps(
+                            lease["config"]
+                            | {
+                                "processing_timeout_seconds": self.service.settings.processing_timeout_seconds,
+                                "process_max_memory_mb": self.service.settings.process_max_memory_mb,
+                                "decoder_sandbox": self.service.settings.decoder_sandbox,
+                            }
+                        )
                     )
-                else:
-                    with TemporaryDirectory() as temp:
-                        path, config_path = Path(temp) / "input", Path(temp) / "config.json"
-                        self.service.store.materialize(blob.storage_key, path)
-                        if file_digest(path) != v.checksum:
-                            raise Error("processing.checksum_mismatch", "Original integrity failed")
-                        config_path.write_text(
-                            json.dumps(
-                                lease["config"]
-                                | {
-                                    "processing_timeout_seconds": self.service.settings.processing_timeout_seconds,
-                                    "process_max_memory_mb": self.service.settings.process_max_memory_mb,
-                                }
-                            )
+                    p = subprocess.Popen(
+                        [
+                            sys.executable,
+                            "-m",
+                            "wks_worker.processing",
+                            str(path),
+                            blob.mime,
+                            str(config_path),
+                            temp,
+                        ],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                        cwd=temp,
+                        env={
+                            key: value
+                            for key, value in os.environ.items()
+                            if key
+                            in {
+                                "PATH",
+                                "LANG",
+                                "LC_ALL",
+                                "LD_LIBRARY_PATH",
+                                "OMP_NUM_THREADS",
+                                "OPENBLAS_NUM_THREADS",
+                                "MKL_NUM_THREADS",
+                                "PYTHONPATH",
+                            }
+                        }
+                        | {
+                            "TMPDIR": temp,
+                            "HF_HOME": str(Path(temp) / "hf-cache"),
+                            "HF_HUB_OFFLINE": "1",
+                            "TRANSFORMERS_OFFLINE": "1",
+                            "PYTHONDONTWRITEBYTECODE": "1",
+                        },
+                    )
+                    try:
+                        p.wait(timeout=self.service.settings.processing_timeout_seconds)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(p.pid, signal.SIGKILL)
+                        p.wait()
+                        raise
+                    if p.returncode:
+                        error = Path(temp) / "error.json"
+                        code = (
+                            json.loads(error.read_text())["code"]
+                            if error.exists()
+                            else "processing.worker_crashed"
                         )
-                        p = subprocess.Popen(
-                            [
-                                sys.executable,
-                                "-m",
-                                "wks_worker.processing",
-                                str(path),
-                                blob.mime,
-                                str(config_path),
-                                temp,
-                            ],
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                            start_new_session=True,
-                        )
-                        try:
-                            p.wait(timeout=self.service.settings.processing_timeout_seconds)
-                        except subprocess.TimeoutExpired:
-                            os.killpg(p.pid, signal.SIGKILL)
-                            p.wait()
-                            raise
-                        if p.returncode:
-                            error = Path(temp) / "error.json"
-                            code = (
-                                json.loads(error.read_text())["code"]
-                                if error.exists()
-                                else "processing.worker_crashed"
-                            )
-                            raise Error(code, "Extraction failed")
-                        data = json.loads((Path(temp) / "result.json").read_text())
-                        data["blocks"] = [Block(**b) for b in data["blocks"]]
-                        data["assets"] = [
-                            ExtractedAsset(content=(Path(temp) / a["id"]).read_bytes(), **a)
-                            for a in data["assets"]
-                        ]
-                        result = ExtractedRepresentation(**data)
+                        raise Error(code, "Extraction failed")
+                    data = json.loads((Path(temp) / "result.json").read_text())
+                    data["blocks"] = [Block(**b) for b in data["blocks"]]
+                    data["assets"] = [
+                        ExtractedAsset(content=(Path(temp) / a["id"]).read_bytes(), **a)
+                        for a in data["assets"]
+                    ]
+                    result = ExtractedRepresentation(**data)
             if lease["config"].get("enrichment_provider") == "http":
                 self.enrich(lease, result)
             self.publish(lease, result)
@@ -381,6 +547,9 @@ class Worker:
             state = "failed"
             self.fail(lease, "processing.infrastructure_unavailable", retryable=True)
         finally:
+            from wks_worker.telemetry import observe
+
+            observe(lease["queue"], state, time.monotonic() - started)
             stop.set()
             thread.join(timeout=2)
             with self.service.sessions.begin() as db:
@@ -438,15 +607,29 @@ class Worker:
         }
 
     def reconcile(self, orphan_age_seconds=3600):
-        # Recover logical deletions, expired leases are reclaimed through claim().
+        from wks_core.storage.stabilization import RetentionSweep
+
         with self.service.sessions() as db:
-            deleted = db.scalars(select(Source.id).where(Source.deleted_at.is_not(None))).all()
-            referenced = set(db.scalars(select(Blob.storage_key)).all())
-        for sid in deleted:
+            checkpoint = db.get(RetentionSweep, "deleted-sources")
+            statement = select(Source.id).where(Source.deleted_at.is_not(None))
+            if checkpoint and checkpoint.cursor:
+                statement = statement.where(Source.id > checkpoint.cursor)
+            deleted = db.scalars(statement.order_by(Source.id).limit(101)).all()
+        for sid in deleted[:100]:
             self.service.purge_source(sid)
-        # Store keys have no age on the port: do not delete unknown live staging writes.
-        # Reconciliation reports orphans; explicit maintenance handles a quiesced store.
+        with self.service.sessions.begin() as db:
+            checkpoint = db.get(RetentionSweep, "deleted-sources")
+            if not checkpoint:
+                checkpoint = RetentionSweep(id="deleted-sources")
+                db.add(checkpoint)
+            checkpoint.cursor = deleted[99] if len(deleted) > 100 else None
+            checkpoint.updated_at = now()
+        from wks_core.storage.journal import reconcile
+
+        journal = reconcile(self.service, grace_seconds=orphan_age_seconds)
         return {
-            "deleted_sources_reconciled": len(deleted),
-            "orphan_keys": sorted(set(self.service.store.keys()) - referenced),
+            "deleted_sources_reconciled": len(deleted[:100]),
+            "next_cursor": checkpoint.cursor,
+            "journal": journal,
+            "orphan_scan": "use_paged_garbage_collect",
         }

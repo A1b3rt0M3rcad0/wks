@@ -27,7 +27,7 @@ CMD ["wks", "api"]
 
 FROM common AS worker-base
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg tesseract-ocr tesseract-ocr-por tesseract-ocr-eng ca-certificates \
+    libseccomp2 ffmpeg tesseract-ocr tesseract-ocr-por tesseract-ocr-eng ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY dist/wks_core-*.whl dist/wks_worker-*.whl /tmp/wheels/
 

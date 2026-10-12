@@ -1,9 +1,10 @@
 [project]
 name = "wks-worker-media"
-version = "0.3.0"
+version = "1.0.0rc1"
 description = "WKS isolated worker-media processing runtime"
+license = "Apache-2.0"
 requires-python = ">=3.12"
-dependencies = ["wks-worker==0.3.0"]
+dependencies = ["wks-worker==1.0.0rc1"]
 
 [project.optional-dependencies]
 asr = ["faster-whisper>=1.2,<2", "av>=15,<16"]
