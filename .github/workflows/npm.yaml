@@ -97,7 +97,7 @@ jobs:
   publish:
     needs: [package, qualify]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -117,4 +117,11 @@ jobs:
         run: |
           test -n "$NODE_AUTH_TOKEN" || { echo 'Repository secret NPM_TOKEN is required'; exit 1; }
           python scripts/publish_npm.py --version "$VERSION" --channel "$CHANNEL" --tarball ./npm-tarball/*.tgz
-          echo "Published wksctl@$VERSION ($CHANNEL): https://www.npmjs.com/package/wksctl" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify public npm content after registry processing
+        env:
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          python scripts/verify_npm.py --version "$VERSION" --tarball ./npm-tarball/*.tgz
+          npm install --ignore-scripts --prefix npm-public "wksctl@$VERSION"
+          node scripts/test_npm.cjs npm-public/node_modules/wksctl
+          echo "Published and verified wksctl@$VERSION: https://www.npmjs.com/package/wksctl" >> "$GITHUB_STEP_SUMMARY"
