@@ -35,7 +35,16 @@ def main():
         print(f"wksctl@{args.version} already published with identical integrity")
         return
     subprocess.run(
-        ["npm", "publish", str(args.tarball), "--access", "public", "--tag", args.channel],
+        [
+            "npm",
+            "publish",
+            str(args.tarball),
+            "--access",
+            "public",
+            "--tag",
+            args.channel,
+            "--provenance",
+        ],
         check=True,
     )
 

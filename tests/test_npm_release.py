@@ -72,7 +72,18 @@ def test_only_missing_version_allows_publish(publish, monkeypatch, status):
         publisher.main()
         assert calls == [
             (
-                (["npm", "publish", str(tarball), "--access", "public", "--tag", "latest"],),
+                (
+                    [
+                        "npm",
+                        "publish",
+                        str(tarball),
+                        "--access",
+                        "public",
+                        "--tag",
+                        "latest",
+                        "--provenance",
+                    ],
+                ),
                 {"check": True},
             )
         ]
@@ -80,3 +91,93 @@ def test_only_missing_version_allows_publish(publish, monkeypatch, status):
         with pytest.raises(urllib.error.HTTPError):
             publisher.main()
         assert calls == []
+
+
+def test_trusted_publisher_has_one_standalone_identity():
+    import yaml
+
+    root = Path(__file__).resolve().parents[1]
+    workflow = yaml.safe_load((root / ".github/workflows/npm.yaml").read_text())
+    triggers = workflow.get("on", workflow.get(True))
+    assert "workflow_call" not in triggers
+    assert triggers["workflow_run"]["workflows"] == ["Release WKS"]
+    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["jobs"]["publish"]["permissions"] == {"contents": "read", "id-token": "write"}
+    assert "environment" not in workflow["jobs"]["publish"]
+    assert "NPM_TOKEN" not in (root / ".github/workflows/npm.yaml").read_text()
+    assert "NODE_AUTH_TOKEN" not in (root / ".github/workflows/npm.yaml").read_text()
+    release = yaml.safe_load((root / ".github/workflows/release.yaml").read_text())
+    assert all(
+        job.get("uses") != "./.github/workflows/npm.yaml" for job in release["jobs"].values()
+    )
+
+
+@pytest.mark.parametrize(
+    "event,matching_source",
+    [
+        ("workflow_dispatch", True),
+        ("workflow_run", True),
+        ("workflow_run", False),
+        ("workflow_run_recovery", True),
+    ],
+)
+def test_workflow_resolves_only_the_immutable_release_source(tmp_path, event, matching_source):
+    import os
+    import subprocess
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[1]
+    workflow = yaml.safe_load((root / ".github/workflows/npm.yaml").read_text())
+    script = next(
+        step["run"]
+        for step in workflow["jobs"]["identity"]["steps"]
+        if step.get("id") == "identity"
+    )
+    subprocess.run(["bash", "-n"], input=script, text=True, check=True)
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Release",
+            "-c",
+            "user.email=release@example.invalid",
+            "commit",
+            "--allow-empty",
+            "-qm",
+            "source",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    subprocess.run(["git", "tag", "v1.2.0-rc.1"], cwd=tmp_path, check=True)
+    candidate = tmp_path / "release-candidate"
+    candidate.mkdir()
+    (candidate / "release-manifest.json").write_text(
+        json.dumps({"version": "1.2.0-rc.1", "commit": revision if matching_source else "0" * 40})
+    )
+    output = tmp_path / "github-output"
+    environment = os.environ | {
+        "REQUESTED_TAG": "v1.2.0-rc.1",
+        "RELEASE_EVENT": "workflow_run" if event == "workflow_run_recovery" else event,
+        "EXPECTED_REVISION": "0" * 40 if event == "workflow_run_recovery" else revision,
+        "GITHUB_OUTPUT": str(output),
+    }
+    result = subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", script],
+        env=environment,
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+    )
+    if matching_source:
+        assert result.returncode == 0, result.stderr
+        fields = dict(line.split("=", 1) for line in output.read_text().splitlines())
+        assert fields == {"version": "1.2.0-rc.1", "channel": "next", "revision": revision}
+    else:
+        assert result.returncode != 0
+        assert not output.exists()

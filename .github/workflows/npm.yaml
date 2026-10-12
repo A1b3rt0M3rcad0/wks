@@ -2,14 +2,9 @@ name: Publish CLI to npm
 on:
   push:
     tags: ['v*']
-  workflow_call:
-    inputs:
-      tag:
-        required: true
-        type: string
-    secrets:
-      NPM_TOKEN:
-        required: true
+  workflow_run:
+    workflows: ['Release WKS']
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -22,30 +17,74 @@ concurrency:
   group: npm-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 jobs:
-  package:
+  identity:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 5
     outputs:
       version: ${{ steps.identity.outputs.version }}
+      revision: ${{ steps.identity.outputs.revision }}
       channel: ${{ steps.identity.outputs.channel }}
+      skip: ${{ github.event_name == 'workflow_run' && steps.candidate.outputs.available != 'true' }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Locate completed automatic release candidate
+        if: github.event_name == 'workflow_run'
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID/artifacts" --jq '.artifacts[] | select(.name == "wks-release-candidate" and .expired == false) | .id')
+          if [[ -n "$artifact" ]]; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'Upstream release was skipped or its candidate expired; no npm publication.'
+          fi
+      - uses: actions/download-artifact@v4
+        if: github.event_name == 'workflow_run' && steps.candidate.outputs.available == 'true'
+        with:
+          name: wks-release-candidate
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: release-candidate
       - name: Resolve immutable version and source
+        if: github.event_name != 'workflow_run' || steps.candidate.outputs.available == 'true'
         id: identity
         env:
           REQUESTED_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
         run: |
+          if [[ "$RELEASE_EVENT" == workflow_run ]]; then
+            REQUESTED_TAG=$(python -c "import json; print('v' + json.load(open('release-candidate/release-manifest.json'))['version'])")
+            CANDIDATE_REVISION=$(python -c "import json; print(json.load(open('release-candidate/release-manifest.json'))['commit'])")
+          fi
           [[ "$REQUESTED_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]
           revision=$(git rev-parse "refs/tags/$REQUESTED_TAG^{commit}")
-          git checkout --detach "$revision"
+          if [[ "$RELEASE_EVENT" == workflow_run ]]; then
+            [[ "$revision" == "$CANDIDATE_REVISION" ]]
+          fi
           version=${REQUESTED_TAG#v}
           channel=latest
           [[ "$version" != *-* ]] || channel=next
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
+  package:
+    needs: identity
+    if: needs.identity.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.identity.outputs.revision }}
       - uses: actions/setup-go@v5
         with:
           go-version: '1.27.2'
@@ -55,14 +94,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Install pinned npm with OIDC support
+        run: npm install --global npm@11.9.0
       - name: Test native client and SDK
         run: |
           (cd packages/wks-sdk-go && go test -race ./...)
           (cd packages/wksctl && go test -race ./...)
       - name: Build six bundled native targets
         env:
-          VERSION: ${{ steps.identity.outputs.version }}
-          REVISION: ${{ steps.identity.outputs.revision }}
+          VERSION: ${{ needs.identity.outputs.version }}
+          REVISION: ${{ needs.identity.outputs.revision }}
         run: |
           python scripts/package_npm.py --version "$VERSION" --revision "$REVISION" --output .local/npm-package
           node scripts/test_npm.cjs .local/npm-package
@@ -85,6 +126,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Install pinned npm with OIDC support
+        run: npm install --global npm@11.9.0
       - uses: actions/download-artifact@v4
         with:
           name: wksctl-npm
@@ -95,7 +138,13 @@ jobs:
           npm install --ignore-scripts --prefix npm-installed ./npm-tarball/*.tgz
           node scripts/test_npm.cjs npm-installed/node_modules/wksctl
   publish:
-    needs: [package, qualify]
+    needs: [identity, package, qualify]
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: npm-publish-${{ needs.identity.outputs.version }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -104,22 +153,22 @@ jobs:
         with:
           node-version: '24'
           registry-url: https://registry.npmjs.org
+      - name: Install pinned npm with OIDC support
+        run: npm install --global npm@11.9.0
       - uses: actions/download-artifact@v4
         with:
           name: wksctl-npm
           path: npm-tarball
-      - name: Publish qualified tarball using repository NPM_TOKEN
+      - name: Publish qualified tarball using npm trusted publishing (OIDC)
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          VERSION: ${{ needs.package.outputs.version }}
-          CHANNEL: ${{ needs.package.outputs.channel }}
+          VERSION: ${{ needs.identity.outputs.version }}
+          CHANNEL: ${{ needs.identity.outputs.channel }}
         shell: bash
         run: |
-          test -n "$NODE_AUTH_TOKEN" || { echo 'Repository secret NPM_TOKEN is required'; exit 1; }
           python scripts/publish_npm.py --version "$VERSION" --channel "$CHANNEL" --tarball ./npm-tarball/*.tgz
       - name: Verify public npm content after registry processing
         env:
-          VERSION: ${{ needs.package.outputs.version }}
+          VERSION: ${{ needs.identity.outputs.version }}
         run: |
           python scripts/verify_npm.py --version "$VERSION" --tarball ./npm-tarball/*.tgz
           npm install --ignore-scripts --prefix npm-public "wksctl@$VERSION"

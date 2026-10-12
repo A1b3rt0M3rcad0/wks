@@ -34,8 +34,12 @@ instalar o pacote, idempotente e preserva skills personalizadas e `AGENTS.md`.
   dois testes completos de empacotamento ficaram a cargo do gate existente no Actions.
 - Guard de republicação executado contra `1.1.0` pública: reconheceu conteúdo idêntico sem publicar novamente.
 
-`secrets.NPM_TOKEN` é usado somente no job de publicação. Releases automáticas chamam
+A publicação inicial usou `secrets.NPM_TOKEN` somente no job de publicação. Naquela configuração, releases automáticas chamavam
 o workflow npm após o GitHub Release: `latest` para estáveis e `next` para prereleases.
 O workflow aceita dispatch de uma tag existente e só reutiliza uma versão publicada
 quando a integridade do tarball é idêntica. A etapa final aguarda a disponibilidade
 pública, compara SHA-512 e testa a instalação pelo registry.
+
+A configuração atual foi migrada para OIDC/trusted publishing sem token persistente.
+O workflow npm agora tem execução própria após a release, para manter uma única
+identidade `npm.yaml`. Consulte [configuração atual](NPM_PUBLISHING.md).

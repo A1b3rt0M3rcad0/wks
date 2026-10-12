@@ -272,12 +272,3 @@ jobs:
             echo "GHCR API and native/Docling/media worker images: ghcr.io/${GITHUB_REPOSITORY,,}:$WKS_RELEASE_VERSION"
             echo "Open /app/ and create the first account on an empty installation."
           } >> "$GITHUB_STEP_SUMMARY"
-
-  npm:
-    needs: [identity, qualify]
-    if: needs.identity.outputs.skip != 'true'
-    uses: ./.github/workflows/npm.yaml
-    with:
-      tag: v${{ needs.identity.outputs.version }}
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

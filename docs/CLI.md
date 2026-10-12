@@ -78,8 +78,13 @@ Skill personalizada. Repetir a instalação da mesma Skill não altera arquivos.
 
 `.github/workflows/npm.yaml` testa o cliente/SDK, empacota seis alvos, instala o
 mesmo tarball em Linux/macOS/Windows sem scripts de lifecycle e publica usando
-`secrets.NPM_TOKEN`. Tags `vX.Y.Z` publicam em `latest`; prereleases em `next`.
-O workflow de release também chama essa etapa após publicar o GitHub Release,
-inclusive quando a tag é criada pelo próprio Actions. O workflow npm aceita uma
+OIDC/trusted publishing do npm, sem `NPM_TOKEN`. O job de publicação usa Node 24,
+npm 11.9.0, `id-token: write` e provenance. Tags `vX.Y.Z` publicam em `latest`;
+prereleases em `next`. Após concluir um GitHub Release, o evento `workflow_run`
+inicia uma execução própria de `npm.yaml` e resolve versão/SHA pelo manifest
+qualificado, inclusive quando a tag é criada pelo próprio Actions. O workflow npm aceita uma
 tag existente por dispatch para retomar uma publicação que falhou; uma versão
 já publicada só é aceita novamente se o tarball tiver a mesma integridade SHA-512. A versão npm é imutável e corresponde à tag e ao SHA embutido no cliente.
+
+A conexão trusted publisher deve autorizar somente `npm.yaml`; não é preciso
+cadastrar `release.yaml`. Veja os [campos exatos no npm](NPM_PUBLISHING.md).
