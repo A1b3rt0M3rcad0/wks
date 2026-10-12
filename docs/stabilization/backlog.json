@@ -578,11 +578,13 @@
       "findings": "Todos",
       "dependencies": "139-143",
       "size": "XL",
-      "status": "release_pipeline_pending",
+      "status": "delivered",
       "evidence": [
         ".github/workflows/release.yaml",
         "scripts/verify_release.py",
-        "docs/stabilization/OPERATIONS.md"
+        "docs/stabilization/OPERATIONS.md",
+        "https://github.com/A1b3rt0M3rcad0/wks/releases/tag/v1.0.0",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38227113059"
       ],
       "qualification_scope": "Local functional checks and native CI; external accuracy, capacity and staging certification waived, not claimed."
     }
@@ -602,5 +604,13 @@
       "macOS",
       "Windows"
     ]
+  },
+  "publication": {
+    "tag": "v1.0.0",
+    "commit": "c6995b37ed4cbd3fb75670ceaa2267f3e1f46faf",
+    "assets_verified": 34,
+    "manifest_sha256": "bd8a04d23928374c94e680d98980546615839473450112d6f29dfc5c95b8bcc0",
+    "workflow": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38227113059",
+    "release": "https://github.com/A1b3rt0M3rcad0/wks/releases/tag/v1.0.0"
   }
 }

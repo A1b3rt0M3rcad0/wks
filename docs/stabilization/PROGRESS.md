@@ -67,3 +67,11 @@ keep models/inputs apart from broker secrets.
 
 Release publication status is authoritative in the GitHub release workflow and
 its immutable tag/manifest; an in-progress run is not a completed publication.
+
+Publication completed: [v1.0.0](https://github.com/A1b3rt0M3rcad0/wks/releases/tag/v1.0.0) is public and stable.
+[The exact-tag release workflow](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38227113059) succeeded at
+`c6995b37ed4cbd3fb75670ceaa2267f3e1f46faf`. All **34 public assets** were downloaded and
+verified against their manifest and SHA256SUMS. API and native/Docling/media
+image jobs and the combined qualification gate all succeeded. The Go SDK module
+tag `packages/wks-sdk-go/v1.0.0` points to the same reviewed source.
+The source code is integrated in master and PR #1 is merged.
