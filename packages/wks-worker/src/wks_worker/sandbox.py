@@ -28,11 +28,11 @@ def availability():
 def restrict(directory, model_paths=(), filesystem_required=True):
     if sys.platform != "linux":
         raise Error("processing.sandbox_unavailable", "Decoder sandbox requires Linux")
-    filesystem = restrict_filesystem(directory, model_paths, filesystem_required)
+    filesystem = restrict_filesystem(directory, model_paths, True) if filesystem_required else False
     restrict_network()
     return {
         "network": "seccomp",
-        "filesystem": "landlock" if filesystem else "unavailable",
+        "filesystem": "landlock" if filesystem else "disabled_by_policy",
         "environment": "broker_credentials_removed",
     }
 

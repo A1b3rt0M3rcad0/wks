@@ -31,6 +31,9 @@ when unavailable. This cloud kernel reports Landlock unavailable; network isolat
 was exercised here, and strict-mode refusal was verified. Filesystem isolation is
 not claimed on this kernel. Production deployments should choose their required
 sandbox envelope explicitly and keep models/inputs separate from broker secrets.
+The `seccomp` policy applies network/process isolation consistently on every host;
+it does not opportunistically enable filesystem scopes. Select `strict` explicitly
+when the installation requires both boundaries.
 
 MCP mutation tools select their namespace from a grant or trusted
 `X-WKS-Namespace` connection header. Source IDs narrow that context; they do not
