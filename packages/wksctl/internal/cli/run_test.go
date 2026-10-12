@@ -104,3 +104,33 @@ func TestCredentialFileRequiredBeforeIssuance(t *testing.T) {
 		t.Fatal("credential issued without a private destination")
 	}
 }
+
+func TestOfflineSkillInstallPreservesCustomizations(t *testing.T) {
+	root := t.TempDir()
+	var out, stderr bytes.Buffer
+	run := func() int {
+		out.Reset()
+		stderr.Reset()
+		return Run([]string{"skill", "install", "--directory", root}, strings.NewReader(""), &out, &stderr, "test", "commit")
+	}
+	if run() != 0 {
+		t.Fatal(stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, ".wks")); !os.IsNotExist(err) {
+		t.Fatal("skill installation initialized workspace")
+	}
+	if run() != 0 || !strings.Contains(out.String(), `"changed": false`) {
+		t.Fatal("installation is not idempotent", stderr.String())
+	}
+	path := filepath.Join(root, ".agents", "skills", "wks", "SKILL.md")
+	if err := os.WriteFile(path, []byte("custom skill"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if run() == 0 {
+		t.Fatal("custom skill overwritten")
+	}
+	raw, _ := os.ReadFile(path)
+	if string(raw) != "custom skill" {
+		t.Fatal("custom content lost")
+	}
+}

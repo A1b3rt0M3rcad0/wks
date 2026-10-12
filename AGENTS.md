@@ -20,7 +20,7 @@ without provider-specific evidence.
 Read ROADMAP.md and packages/README.md before modifying package boundaries. Keep wks-api
 dependent on wks-core only; core must not import API or transport frameworks. Frontend
 assets live in the API wheel; follow docs/ui-workspace and the WOS reference design.
-Node is test tooling only. Cookie mutations require CSRF and origin validation; MCP remains
+Node is test tooling and the npm native CLI launcher only; the API frontend has no Node runtime. Cookie mutations require CSRF and origin validation; MCP remains
 Bearer-only. Run browser contracts when changing user journeys. WOS access is read-only.
 
 Workers live in their own runtime/profile packages. They must never import API or

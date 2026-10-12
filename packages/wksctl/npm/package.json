@@ -1,0 +1,15 @@
+{
+  "name": "wksctl",
+  "version": "1.1.0",
+  "description": "Standalone WKS knowledge service CLI and agent Skill installer",
+  "license": "Apache-2.0",
+  "repository": {"type": "git", "url": "https://github.com/A1b3rt0M3rcad0/wks.git", "directory": "packages/wksctl/npm"},
+  "homepage": "https://github.com/A1b3rt0M3rcad0/wks/blob/master/docs/CLI.md",
+  "bugs": "https://github.com/A1b3rt0M3rcad0/wks/issues",
+  "bin": {"wksctl": "bin/wksctl.cjs"},
+  "engines": {"node": ">=20"},
+  "os": ["linux", "darwin", "win32"],
+  "cpu": ["x64", "arm64"],
+  "files": ["bin/", "native/", "SKILL.md", "LICENSE", "NOTICE", "THIRD_PARTY_LICENSES.txt"],
+  "publishConfig": {"access": "public", "registry": "https://registry.npmjs.org/"}
+}

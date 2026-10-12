@@ -1,0 +1,111 @@
+name: Publish CLI to npm
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable WKS version tag to publish
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: npm-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      channel: ${{ steps.identity.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve immutable version and source
+        id: identity
+        env:
+          REQUESTED_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          [[ "$REQUESTED_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]
+          revision=$(git rev-parse "refs/tags/$REQUESTED_TAG^{commit}")
+          git checkout --detach "$revision"
+          version=${REQUESTED_TAG#v}
+          channel=latest
+          [[ "$version" != *-* ]] || channel=next
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.2'
+          cache-dependency-path: |
+            packages/wksctl/go.sum
+            packages/wks-sdk-go/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test native client and SDK
+        run: |
+          (cd packages/wks-sdk-go && go test -race ./...)
+          (cd packages/wksctl && go test -race ./...)
+      - name: Build six bundled native targets
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+          REVISION: ${{ steps.identity.outputs.revision }}
+        run: |
+          python scripts/package_npm.py --version "$VERSION" --revision "$REVISION" --output .local/npm-package
+          node scripts/test_npm.cjs .local/npm-package
+          mkdir -p .local/npm-tarball
+          npm pack ./.local/npm-package --pack-destination .local/npm-tarball
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wksctl-npm
+          path: .local/npm-tarball/*.tgz
+          if-no-files-found: error
+  qualify:
+    needs: package
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: wksctl-npm
+          path: npm-tarball
+      - name: Install exact tarball without lifecycle scripts and test Skill
+        shell: bash
+        run: |
+          npm install --ignore-scripts --prefix npm-installed ./npm-tarball/*.tgz
+          node scripts/test_npm.cjs npm-installed/node_modules/wksctl
+  publish:
+    needs: [package, qualify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: wksctl-npm
+          path: npm-tarball
+      - name: Publish qualified tarball using repository NPM_TOKEN
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.package.outputs.version }}
+          CHANNEL: ${{ needs.package.outputs.channel }}
+        shell: bash
+        run: |
+          test -n "$NODE_AUTH_TOKEN" || { echo 'Repository secret NPM_TOKEN is required'; exit 1; }
+          npm publish ./npm-tarball/*.tgz --access public --tag "$CHANNEL"
+          echo "Published wksctl@$VERSION ($CHANNEL): https://www.npmjs.com/package/wksctl" >> "$GITHUB_STEP_SUMMARY"

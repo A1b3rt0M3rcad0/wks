@@ -86,12 +86,15 @@ func Run(args []string, input io.Reader, output, stderr io.Writer, version, comm
 		}
 	}
 	if name == "" || name == "help" || option.flags["help"] {
-		emit(output, map[string]any{"name": "wksctl", "version": version, "commands": Commands, "local_commands": []string{"auth login --token-stdin", "auth logout", "context list", "context use", "context set", "doctor", "operation wait", "reconcile --key KEY", "upload resume", "source upload", "asset download", "export download", "init --agents", "diff", "plan", "apply --yes", "sync --yes", "test", "schema"}, "usage": "wksctl <command> --config PATH --context NAME [--id ID] [--json-body FILE|-] [--key KEY] [--all]"})
+		emit(output, map[string]any{"name": "wksctl", "version": version, "commands": Commands, "local_commands": []string{"auth login --token-stdin", "auth logout", "context list", "context use", "context set", "doctor", "operation wait", "reconcile --key KEY", "upload resume", "source upload", "asset download", "export download", "init --agents", "skill install --directory PATH", "diff", "plan", "apply --yes", "sync --yes", "test", "schema"}, "usage": "wksctl <command> --config PATH --context NAME [--id ID] [--json-body FILE|-] [--key KEY] [--all]"})
 		return 0
 	}
 	if name == "schema" {
 		output.Write(PublicSchema)
 		return 0
+	}
+	if name == "skill install" {
+		return installSkill(option, output, stderr)
 	}
 	if name == "init" {
 		return initialize(option, output, stderr)

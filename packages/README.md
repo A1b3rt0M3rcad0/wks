@@ -29,7 +29,7 @@ filas cujo pacote não está instalado antes de assumir qualquer job. `wks worke
 `wks reconcile` foram substituídos por `wks-worker` e `wks-worker --reconcile`.
 
 Os assets permanecem no wheel da API. Migrações, Compose e testes de integração ficam
-na raiz, pois coordenam o schema e o deployment. Node é somente ferramenta de testes.
+na raiz, pois coordenam o schema e o deployment. Node é ferramenta de testes e launcher do CLI distribuído via npm; a API não exige Node.
 Veja [operação dos workers](../docs/WORKERS.md) para instalação, filas, modelos e escala.
 
 Os módulos Go `wks-sdk-go` e `wksctl` são consumidores HTTP independentes. O CLI

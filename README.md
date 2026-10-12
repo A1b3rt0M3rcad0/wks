@@ -119,3 +119,14 @@ Veja [CLI](docs/CLI.md), [operação e upgrade](docs/stabilization/OPERATIONS.md
 [licenças de dependências](docs/THIRD_PARTY_NOTICES.md) e
 [evidências](docs/stabilization/PROGRESS.md). Homologação externa foi retirada
 do escopo pelo proprietário; não há certificação AWS, SLO ou integração Lipo/Woobe.
+
+## CLI no npm
+
+```sh
+npm install -g wksctl
+wksctl skill install --directory ./meu-projeto
+```
+
+Ou use `npx --yes wksctl skill install --directory ./meu-projeto`.
+O pacote inclui binários para Linux, macOS e Windows (x64/ARM64), sem dependência
+Python. Node 20+ é necessário para o launcher npm. Veja [CLI](docs/CLI.md).

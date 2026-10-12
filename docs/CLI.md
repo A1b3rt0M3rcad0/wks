@@ -58,3 +58,26 @@ Desenvolvimento: Go 1.27.2, `go test -race ./...` em cada módulo. CI executa os
 contratos nativamente em Linux, macOS e Windows; a suíte Python também usa o CLI
 e ambos SDKs contra a API real. Releases levam seis binários de OS/arquitetura,
 sete wheels Python, fonte, OpenAPI, SBOM e hashes.
+
+## npm e instalação da Skill
+
+```sh
+npm install -g wksctl
+wksctl version
+wksctl skill install --directory ./meu-projeto
+# Sem instalação global:
+npx --yes wksctl skill install --directory ./meu-projeto
+```
+
+O pacote npm contém os seis binários Go (Linux/macOS/Windows, x64/ARM64),
+licenças e a Skill. Node 20+ executa o binário correspondente; Python e Go não
+são dependências de execução. Não há scripts de instalação nem downloads adicionais.
+A Skill fica em `.agents/skills/wks/SKILL.md`; a instalação independente não
+cria manifest, conta ou contexto, preserva `AGENTS.md` e recusa sobrescrever uma
+Skill personalizada. Repetir a instalação da mesma Skill não altera arquivos.
+
+`.github/workflows/npm.yaml` testa o cliente/SDK, empacota seis alvos, instala o
+mesmo tarball em Linux/macOS/Windows sem scripts de lifecycle e publica usando
+`secrets.NPM_TOKEN`. Tags `vX.Y.Z` publicam em `latest`; prereleases em `next`.
+O workflow também aceita uma tag existente por dispatch para retomar uma publicação
+que falhou. A versão npm é imutável e corresponde à tag e ao SHA embutido no cliente.

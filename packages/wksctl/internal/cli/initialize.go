@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -61,5 +62,30 @@ func initialize(option options, output, stderr io.Writer) int {
 		}
 	}
 	emit(output, map[string]any{"initialized": true, "manifest": manifest, "agent_skill": option.flags["agents"]})
+	return 0
+}
+
+// installSkill is offline and preserves customized skills and agent instructions.
+func installSkill(option options, output, stderr io.Writer) int {
+	root := option.values["directory"]
+	if root == "" {
+		root = "."
+	}
+	path := filepath.Join(root, ".agents", "skills", "wks", "SKILL.md")
+	raw, err := os.ReadFile(path)
+	if err == nil {
+		if !bytes.Equal(raw, []byte(AgentSkill)) {
+			return failure(stderr, errors.New("skill already exists with different content; existing files are preserved"))
+		}
+		emit(output, map[string]any{"installed": true, "changed": false, "skill": path})
+		return 0
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return failure(stderr, err)
+	}
+	if err = privateFile(path, []byte(AgentSkill)); err != nil {
+		return failure(stderr, err)
+	}
+	emit(output, map[string]any{"installed": true, "changed": true, "skill": path})
 	return 0
 }
