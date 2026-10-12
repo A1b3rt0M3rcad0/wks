@@ -470,6 +470,11 @@ class Worker:
                         json.dumps(
                             lease["config"]
                             | {
+                                field: str(Path(lease["config"][field]).resolve())
+                                for field in ("asr_model_path", "docling_artifacts_path")
+                                if lease["config"].get(field)
+                            }
+                            | {
                                 "processing_timeout_seconds": self.service.settings.processing_timeout_seconds,
                                 "process_max_memory_mb": self.service.settings.process_max_memory_mb,
                                 "decoder_sandbox": self.service.settings.decoder_sandbox,

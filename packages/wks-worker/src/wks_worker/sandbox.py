@@ -97,6 +97,8 @@ def restrict_filesystem(directory, model_paths=(), filesystem_required=True):
             "/dev/urandom",
             "/dev/random",
             sys.prefix,
+            sys.base_prefix,
+            sys.base_exec_prefix,
             Path(__file__).resolve().parents[3],
             *model_paths,
         ):
