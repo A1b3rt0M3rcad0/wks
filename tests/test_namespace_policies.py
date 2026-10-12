@@ -57,3 +57,23 @@ def test_action_window_applies_before_new_mutations_and_receipt_replay_is_safe(e
     assert register_text(env, key="once") == created
     with pytest.raises(Error, match="budget"):
         register_text(env, key="twice")
+
+
+def test_persisted_exports_consume_namespace_storage_budget(env):
+    from conftest import process_all, register_text
+
+    service, principal = env["s"], env["a"]
+    registered = register_text(env, value="Original storage budget text. " * 20)
+    process_all(env)
+    source = service.source_get(principal, registered["source_id"])
+    representation = source["versions"][0]["representation_id"]
+    artifact = service.export_create(principal, "budget-export", representation, "plain-text")
+    process_all(env)
+    exported = service.export_get(principal, artifact["id"])
+    assert exported["status"] == "ready" and exported["byte_size"] > 0
+    service.settings.namespace_max_bytes = (
+        source["versions"][0]["byte_size"] + exported["byte_size"] + 10
+    )
+    with pytest.raises(Error) as rejected:
+        register_text(env, key="overflow", value="X" * 20)
+    assert rejected.value.code == "upload.quota_exceeded"

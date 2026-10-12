@@ -85,6 +85,9 @@ pelo ledger antigo. Preserve também sua chave de assinatura, com acesso privado
 Snapshots antigos devem ser restaurados pelo código de schema correspondente
 e só então migrados. Configure WAL/PITR do PostgreSQL separadamente: WAL não
 restaura objetos. Retenha backups e ledger conforme sua política operacional.
+Uploads ainda pendentes não são originais publicados: restore expira suas
+sessões e offsets temporários. Reinicie a transferência com uma nova intenção;
+o servidor não confirma offsets cujas partes não entraram no snapshot.
 
 `wks audit-integrity` verifica um lote de originais por SHA-256; a biblioteca
 aceita cursor para completar a auditoria. Falhas conhecidas tornam readiness

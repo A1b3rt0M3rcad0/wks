@@ -223,6 +223,14 @@ def restore(service, source, pg_container=None, ledger_directory=None):
         )
         db.execute(text("DELETE FROM web_sessions"))
         db.execute(text("DELETE FROM web_auth_attempts"))
+        # Only received whole objects and committed originals belong to the
+        # snapshot's pins. Temporary multipart offsets must not survive without
+        # their bytes and falsely advertise resumability after disaster recovery.
+        db.execute(
+            text(
+                "UPDATE upload_sessions SET status='expired',received_offset=0,expires_at=now() WHERE status='pending'"
+            )
+        )
         db.execute(text("UPDATE backup_snapshots SET state='complete'"))
         db.execute(text("DELETE FROM backup_pins"))
     replayed = ledger.replay(service, after=manifest.get("privacy_ledger_watermark"))

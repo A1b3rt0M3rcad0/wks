@@ -374,6 +374,8 @@ class Service(
                WHERE s.state<>'deleted' AND v.original_blob_id IS NOT NULL
              UNION SELECT a.blob_id FROM assets a JOIN representations r ON a.representation_id=r.id
                JOIN source_versions v ON v.id=r.source_version_id JOIN sources s ON s.id=v.source_id WHERE s.state<>'deleted'
+             UNION SELECT e.blob_id FROM export_artifacts e JOIN representations r ON e.representation_id=r.id
+               JOIN source_versions v ON v.id=r.source_version_id JOIN sources s ON s.id=v.source_id WHERE s.state<>'deleted' AND e.blob_id IS NOT NULL
              UNION SELECT u.staged_blob_id FROM upload_sessions u JOIN source_versions v ON v.id=u.source_version_id
                JOIN sources s ON s.id=v.source_id WHERE s.state<>'deleted' AND u.staged_blob_id IS NOT NULL
           )"""),
