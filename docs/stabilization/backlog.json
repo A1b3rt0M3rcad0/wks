@@ -22,10 +22,11 @@
       "findings": "A04, A14, A15",
       "dependencies": "100",
       "size": "M",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "packages/wks-core/src/wks_core/domain/canonical.py",
-        "tests/test_formats_registry.py"
+        "tests/test_formats_registry.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -34,10 +35,11 @@
       "findings": "A04, A13",
       "dependencies": "101",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "migrations/versions/0008_stabilization_foundation.py",
-        "tests/test_stabilization.py"
+        "tests/test_stabilization.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -58,10 +60,11 @@
       "findings": "A27",
       "dependencies": "101",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "packages/wks-core/src/wks_core/application/authorization.py",
-        "docs/stabilization/ARCHITECTURE.md"
+        "docs/stabilization/ARCHITECTURE.md",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -70,10 +73,11 @@
       "findings": "A20, A28",
       "dependencies": "101",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_history_and_bulk.py",
-        "tests/test_stabilization.py"
+        "tests/test_stabilization.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -82,10 +86,11 @@
       "findings": "A07",
       "dependencies": "101",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_fault_recovery.py",
-        "packages/wks-core/src/wks_core/storage/journal.py"
+        "packages/wks-core/src/wks_core/storage/journal.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -94,10 +99,11 @@
       "findings": "A05, A25",
       "dependencies": "106",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_stabilization.py",
-        "packages/wks-core/src/wks_core/storage/snapshot.py"
+        "packages/wks-core/src/wks_core/storage/snapshot.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -117,11 +123,12 @@
       "findings": "A06, A18",
       "dependencies": "106",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_security_storage.py",
         "tests/test_storage_multipart.py",
-        "tests/test_storage_migration.py"
+        "tests/test_storage_migration.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -141,11 +148,12 @@
       "findings": "A17",
       "dependencies": "109, 130",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_large_transfer.py",
         "tests/test_resumable_upload.py",
-        "tests/test_public_clients.py"
+        "tests/test_public_clients.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -154,10 +162,11 @@
       "findings": "A19, A24",
       "dependencies": "106",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_incremental_gc.py",
-        "tests/test_namespace_policies.py"
+        "tests/test_namespace_policies.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -166,10 +175,11 @@
       "findings": "A16",
       "dependencies": "109",
       "size": "M",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_download_conditions.py",
-        "tests/test_large_transfer.py"
+        "tests/test_large_transfer.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -178,10 +188,11 @@
       "findings": "A14",
       "dependencies": "101",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_format_ingestion.py",
-        "tests/test_formats_registry.py"
+        "tests/test_formats_registry.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -190,10 +201,11 @@
       "findings": "A14",
       "dependencies": "114",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_format_ingestion.py",
-        "tests/test_formats_registry.py"
+        "tests/test_formats_registry.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -202,10 +214,11 @@
       "findings": "A14",
       "dependencies": "114",
       "size": "M",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_formats_registry.py",
-        "tests/test_format_ingestion.py"
+        "tests/test_format_ingestion.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -214,11 +227,12 @@
       "findings": "A14, A15",
       "dependencies": "114",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_processing.py",
         "tests/test_worker_queues.py",
-        "docs/stabilization/OPERATIONS.md"
+        "docs/stabilization/OPERATIONS.md",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ],
       "qualification_scope": "Local functional checks and native CI; external accuracy, capacity and staging certification waived, not claimed."
     },
@@ -250,9 +264,10 @@
       "findings": "A10, A12",
       "dependencies": "101",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
-        "tests/test_search_stabilization.py"
+        "tests/test_search_stabilization.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -261,9 +276,10 @@
       "findings": "A10, A11, A29",
       "dependencies": "120",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
-        "tests/test_search_stabilization.py"
+        "tests/test_search_stabilization.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -272,10 +288,11 @@
       "findings": "A11",
       "dependencies": "120",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_search_stabilization.py",
-        "packages/wks-core/src/wks_core/domain/searching.py"
+        "packages/wks-core/src/wks_core/domain/searching.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -284,11 +301,12 @@
       "findings": "A30",
       "dependencies": "120",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "scripts/evaluate_search.py",
         "tests/fixtures/stabilization/search-corpus.json",
-        "tests/test_public_clients.py"
+        "tests/test_public_clients.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ],
       "qualification_scope": "Local functional checks and native CI; external accuracy, capacity and staging certification waived, not claimed."
     },
@@ -298,9 +316,10 @@
       "findings": "A10, A30",
       "dependencies": "123",
       "size": "S (decisão); XL se adotar",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
-        "docs/stabilization/OPERATIONS.md"
+        "docs/stabilization/OPERATIONS.md",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -309,10 +328,11 @@
       "findings": "A03",
       "dependencies": "101",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_public_schema.py",
-        "packages/wks-api/openapi.json"
+        "packages/wks-api/openapi.json",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -321,10 +341,11 @@
       "findings": "A03",
       "dependencies": "125, 106",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_sdk_python.py",
-        "tests/test_public_clients.py"
+        "tests/test_public_clients.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -333,10 +354,11 @@
       "findings": "A21, A22",
       "dependencies": "125, 101",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_stabilization.py",
-        "tests/test_accounts.py"
+        "tests/test_accounts.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -345,10 +367,11 @@
       "findings": "A23",
       "dependencies": "125",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "packages/wks-core/src/wks_core/application/management.py",
-        "tests/test_stabilization.py"
+        "tests/test_stabilization.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -357,10 +380,11 @@
       "findings": "A03",
       "dependencies": "125-127",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_public_clients.py",
-        "packages/wks-sdk-go/client_test.go"
+        "packages/wks-sdk-go/client_test.go",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -369,10 +393,11 @@
       "findings": "A01",
       "dependencies": "125-127",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "packages/wksctl/internal/cli/run_test.go",
-        "tests/test_public_clients.py"
+        "tests/test_public_clients.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -381,10 +406,11 @@
       "findings": "A01, A04",
       "dependencies": "130, 119",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_public_clients.py",
-        "packages/wksctl/internal/cli/commands.go"
+        "packages/wksctl/internal/cli/commands.go",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -393,10 +419,11 @@
       "findings": "A01",
       "dependencies": "131, 126",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_public_clients.py",
-        "packages/wksctl/internal/cli/manifest.go"
+        "packages/wksctl/internal/cli/manifest.go",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -405,10 +432,11 @@
       "findings": "A01, A30",
       "dependencies": "131, 123",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_public_clients.py",
-        "packages/wksctl/internal/cli/testing.go"
+        "packages/wksctl/internal/cli/testing.go",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -417,10 +445,11 @@
       "findings": "A02, A21",
       "dependencies": "127, 125",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_mcp_writes.py",
-        "tests/test_mcp.py"
+        "tests/test_mcp.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -429,10 +458,11 @@
       "findings": "A02, A17",
       "dependencies": "134, 111",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_mcp_writes.py",
-        "tests/test_large_transfer.py"
+        "tests/test_large_transfer.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -441,11 +471,12 @@
       "findings": "A01",
       "dependencies": "130-133",
       "size": "M",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         ".github/workflows/ci.yaml",
         "packages/wksctl/internal/cli/initialize.go",
-        "packages/wksctl/internal/config/private_windows.go"
+        "packages/wksctl/internal/config/private_windows.go",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ],
       "qualification_scope": "Local functional checks and native CI; external accuracy, capacity and staging certification waived, not claimed."
     },
@@ -455,11 +486,12 @@
       "findings": "A21, A26",
       "dependencies": "114, 127",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_namespace_policies.py",
         "tests/test_decoder_sandbox.py",
-        "tests/test_worker_fairness.py"
+        "tests/test_worker_fairness.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -468,11 +500,12 @@
       "findings": "A26",
       "dependencies": "109, 120",
       "size": "L",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "observability/dashboard.json",
         "packages/wks-api/src/wks_api/http/app.py",
-        "packages/wks-worker/src/wks_worker/telemetry.py"
+        "packages/wks-worker/src/wks_worker/telemetry.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -481,11 +514,12 @@
       "findings": "A05-A07, A25",
       "dependencies": "106-113",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "tests/test_fault_recovery.py",
         "tests/test_integrity_audit.py",
-        "tests/test_stabilization.py"
+        "tests/test_stabilization.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -516,9 +550,10 @@
       "findings": "A09",
       "dependencies": "129",
       "size": "M",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
-        "tests/test_public_clients.py"
+        "tests/test_public_clients.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -527,13 +562,14 @@
       "findings": "A08",
       "dependencies": "100",
       "size": "M",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "verified_functional_scope",
       "evidence": [
         "LICENSE",
         "NOTICE",
         "SECURITY.md",
         "docs/THIRD_PARTY_NOTICES.md",
-        "scripts/distribution.py"
+        "scripts/distribution.py",
+        "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179"
       ]
     },
     {
@@ -542,7 +578,7 @@
       "findings": "Todos",
       "dependencies": "139-143",
       "size": "XL",
-      "status": "implemented_pending_final_candidate_validation",
+      "status": "release_pipeline_pending",
       "evidence": [
         ".github/workflows/release.yaml",
         "scripts/verify_release.py",
@@ -555,5 +591,16 @@
     "AWS S3 certification",
     "Lipo/Woobe runtime homologation",
     "production SLO/staging certification"
-  ]
+  ],
+  "functional_ci": {
+    "revision": "28e9cc7e77ca9718289352b8552151d344b93edc",
+    "python_passed": 197,
+    "python_skipped": 0,
+    "browser_passed": 5,
+    "native_client_platforms": [
+      "Linux",
+      "macOS",
+      "Windows"
+    ]
+  }
 }

@@ -1,44 +1,69 @@
-# Stabilization implementation evidence
+# WKS stabilization delivery evidence
 
 Scope: WKS only. Apache-2.0 was selected by the owner. External homologation,
-AWS certification and Lipo/Woobe runtime integration were explicitly removed
-from this delivery by the owner; they are not claimed as verified.
+AWS certification, Lipo/Woobe changes and production SLO/staging certification
+were explicitly removed from this delivery. They are not claimed as verified.
 
-Baseline: `a570aac7ed9bb950e7f3f9aae33628fa5f6821bb` / v0.3.0.
-The original environment completed **106 passed, 0 skipped** in 452.35 seconds.
-The retained application volume was backed up before schema changes; application
-schema remains unchanged while implementation uses `wks_stabilization_test`.
+The reviewed functional revision is `28e9cc7e77ca9718289352b8552151d344b93edc`.
+[GitHub CI](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38225972179)
+completed **197 Python cases passed, zero skipped**, plus **five Chromium
+journeys passed**. The Go SDK and CLI race tests passed natively on Linux,
+macOS and Windows. The final documentation commit adds this evidence without
+changing runtime behavior; the release workflow repeats validation at its exact
+source SHA before publishing artifacts or images.
 
-Functional results during implementation:
+The suite includes canonical block/backfill constraints, typed public schemas,
+scoped write grants, metadata revisions, current/historical references, full
+exports, native XLSX/ODS/EPUB/XML/HTML/code/image fixtures, actual local
+Docling/ASR/video profiles, lexical phrase/exact/fuzzy/proximity search, authorized
+facets/suggestions, quotas, worker fairness, events, receipts and both SDKs plus
+standalone CLI over the real public HTTP gateway. CLI declarative sync creates
+revisions, handles content reversion, renames collections and resumes confirmed
+upload offsets. Declarative assertions run in isolated namespaces.
 
-- Authorization, metadata, accounts, existing workflow and maintenance: 48 passed.
-- Post-snapshot deletion, grant revocation and account recovery: 7 passed, including
-  restore into a separate PostgreSQL database. Deleted data stayed inaccessible;
-  old password/recovery token and revoked grant remained rejected.
-- Full exports and privacy regressions: 10 passed. Markdown/text/JSON/original
-  downloads included the last paragraph beyond read pagination; bundle manifest
-  SHA-256 matched every relative file. Unauthorized and revoked access failed.
-- Native format fixtures: 15 passed; XML entity rejection and row-budget partial
-  coverage included. Fixtures are synthetic and are not accuracy certification.
-- Python SDK HTTP conformance: 3 passed. Go SDK: 4 tests passed with race detector.
-  Tests cover network ambiguity, pagination, checksums, redirect rejection and
-  resume from the confirmed server offset. Server-side resumable transport and
-  full SDK-to-server qualification are still being implemented.
+Storage evidence includes immutable filesystem and Moto S3 adapter behavior,
+explicit migration/import, multipart abort, paged GC, corruption/readiness,
+conditional/range downloads and crash recovery across 20 injected checkpoints.
+The real HTTP 1 GiB test interrupts at 50%, resumes with a new client, verifies
+full SHA-256 and leaves exactly one SourceVersion. Bytes are synthetic/sparse;
+this is transport qualification, not a production bandwidth claim.
 
-Evidence commands and final candidate results will be consolidated after the
-remaining features are complete. This file is a progress record, not a claim
-that the 1.0.0 plan is already delivered.
+Backup/restore replays post-snapshot deletion, grant/credential revocation,
+password recovery and container deletion before opening traffic. Temporary
+uncommitted multipart offsets are expired after restore rather than advertised
+without their bytes. Committed originals are copied and verified. An isolated
+upgrade from actual schema 0007 to 0015 preserved the original SHA-256, the
+legacy representation and all four normalized blocks, whose checksums matched
+PostgreSQL JSON bytes. The retained application upgrade preserved its five
+historical Sources and did not create a human account.
 
-Later functional results:
+The updated host development API and independent native worker passed readiness,
+stream upload, durable processing, lexical search, read, original SHA-256 and
+purge in a functional smoke. `/app/setup` remains `setup_required=true` for the
+actual installation. The original PostgreSQL/objects volumes and schema-0007
+backup were preserved. Docker VFS image builds exhausted this 32-GB cloud disk;
+the selected development workflow uses host processes, while GitHub qualifies
+and publishes the four release image profiles on amd64/arm64.
 
-- Native ingestion + parser + lexical regressions with seccomp enabled: 23 passed.
-- Action/schema namespace policies: 2 passed.
-- Recovery epochs, passwords and post-snapshot privacy: 20 passed.
-- MCP read/write discovery, shared receipts and trusted context: 5 passed.
-- Standalone CLI real HTTP workflow/manifests + Python SDK streamed original: 2 passed.
-- Resumable transfer regressions: 5 passed; abort, expiry, empty object, duplicate
-  offset and final SHA-256 tested. Large-file envelope testing is still pending.
-- S3 multipart behavior using Moto: 2 passed, including immutable completion and
-  abortion after failed parts. This is functional adapter testing, not AWS certification.
-- Incremental GC and directory resume: 2 passed; live originals survived orphan
-  quarantine/deletion. Storage/SSRF/immutable-port contracts: 14 passed.
+A clean installed API from wheels loaded exactly the packaged OpenAPI and stamped
+release identity. Release packaging/verifier tests passed, including all seven
+Python distributions, six standalone CLI OS/architecture archives, pinned
+requirements, source, license notices, CycloneDX inventory and SHA256SUMS.
+Checksums cover every distribution file. The inventory documents language
+packages and optional profiles; it does not claim OS/model license or CVE scans.
+
+The synthetic lexical corpus `wks-synthetic-lexical-v1` contains four explicit
+qrels: Portuguese stemming, English phrase, Unicode history and chemistry.
+Public-SDK evaluation produced Recall@10 = 1.0 and nDCG@10 = 1.0 for that corpus.
+This small fixture is not an accuracy, million-segment or capacity certification.
+No evidence justifies replacing PostgreSQL lexical search with BM25 or vectors.
+
+Decoder policy `seccomp` consistently blocks network/process inspection.
+`strict` explicitly adds Landlock filesystem scopes and refuses unavailable
+isolation. This cloud kernel reports Landlock unavailable; filesystem isolation
+is not claimed here. The native-platform CI and strict-mode boundary tests keep
+that limitation explicit. Production operators select the required boundary and
+keep models/inputs apart from broker secrets.
+
+Release publication status is authoritative in the GitHub release workflow and
+its immutable tag/manifest; an in-progress run is not a completed publication.
