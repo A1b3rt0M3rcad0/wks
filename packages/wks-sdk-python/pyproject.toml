@@ -1,6 +1,6 @@
 [project]
 name = "wks-sdk-python"
-version = "1.0.0rc1"
+version = "1.2.0"
 description = "Standalone typed WKS HTTP client with no server dependencies"
 requires-python = ">=3.12"
 license = "Apache-2.0"

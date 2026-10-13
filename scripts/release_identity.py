@@ -114,7 +114,6 @@ if __name__ == "__main__":
     parser.add_argument("--version", default="")
     parser.add_argument("--revision", default="")
     parser.add_argument("--tag", default="")
-    parser.add_argument("--stable-reviewed", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = select(args.version, args.revision, args.tag)
@@ -126,9 +125,7 @@ if __name__ == "__main__":
             choose(
                 result[0],
                 existing,
-                explicit=bool(args.version),
-                tagged=bool(args.tag),
-                reviewed=args.stable_reviewed,
+                explicit=bool(args.version or args.tag),
             ),
             result[1],
         )

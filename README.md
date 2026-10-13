@@ -114,7 +114,8 @@ O workflow [Release WKS](.github/workflows/release.yaml) executa em `master`, ta
 e disparos manuais. Valida o commit exato, empacota os seis pacotes, qualifica a API e os três perfis de workers e publica a tag,
 o GitHub Release e quatro imagens GHCR para amd64/arm64.
 `VERSION` define o piso revisado; commits convencionais calculam os incrementos.
-Tags, arquivos publicados e imagens de versão são imutáveis. Veja [versionamento,
+Novas releases são estáveis (`X.Y.Z`) após os gates; a CLI é publicada no npm em
+`latest`. Tags, arquivos publicados e imagens de versão são imutáveis. Veja [versionamento,
 instalação e retomada de releases](docs/RELEASING.md).
 
 ## Estabilização

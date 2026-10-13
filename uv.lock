@@ -3496,7 +3496,7 @@ wheels = [
 
 [[package]]
 name = "wks-api"
-version = "1.0.0rc1"
+version = "1.2.0"
 source = { editable = "packages/wks-api" }
 dependencies = [
     { name = "fastapi" },
@@ -3517,7 +3517,7 @@ requires-dist = [
 
 [[package]]
 name = "wks-core"
-version = "1.0.0rc1"
+version = "1.2.0"
 source = { editable = "packages/wks-core" }
 dependencies = [
     { name = "alembic" },
@@ -3540,12 +3540,12 @@ requires-dist = [
 
 [[package]]
 name = "wks-sdk-python"
-version = "1.0.0rc1"
+version = "1.2.0"
 source = { editable = "packages/wks-sdk-python" }
 
 [[package]]
 name = "wks-worker"
-version = "1.0.0rc1"
+version = "1.2.0"
 source = { editable = "packages/wks-worker" }
 dependencies = [
     { name = "prometheus-client" },
@@ -3560,7 +3560,7 @@ requires-dist = [
 
 [[package]]
 name = "wks-worker-docling"
-version = "1.0.0rc1"
+version = "1.2.0"
 source = { editable = "packages/wks-worker-docling" }
 dependencies = [
     { name = "wks-worker" },
@@ -3588,7 +3588,7 @@ provides-extras = ["models"]
 
 [[package]]
 name = "wks-worker-media"
-version = "1.0.0rc1"
+version = "1.2.0"
 source = { editable = "packages/wks-worker-media" }
 dependencies = [
     { name = "wks-worker" },
@@ -3610,7 +3610,7 @@ provides-extras = ["asr"]
 
 [[package]]
 name = "wks-worker-native"
-version = "1.0.0rc1"
+version = "1.2.0"
 source = { editable = "packages/wks-worker-native" }
 dependencies = [
     { name = "openpyxl" },
@@ -3639,7 +3639,7 @@ requires-dist = [
 
 [[package]]
 name = "woobe-knowledge-service"
-version = "1.0.0rc1"
+version = "1.2.0"
 source = { virtual = "." }
 dependencies = [
     { name = "wks-api" },

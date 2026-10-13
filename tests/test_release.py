@@ -186,11 +186,25 @@ def test_component_exports_preserve_only_the_required_index(tmp_path, monkeypatc
     assert "download.pytorch.org" in (candidate / "docling-requirements.txt").read_text()
 
 
-def test_automatic_candidate_never_promotes_to_stable():
+def test_automatic_releases_are_stable_and_existing_candidates_are_recoverable():
     channel = module("release_channel")
-    assert channel.choose("1.0.0", {"1.0.0-rc.1"}) == "1.0.0-rc.2"
-    assert channel.choose("1.1.0", {"1.0.0"}) == "1.1.0-rc.1"
-    with pytest.raises(ValueError):
-        channel.choose("1.0.0", set(), explicit=True)
-    assert channel.choose("1.0.0", set(), explicit=True, reviewed=True) == "1.0.0"
-    assert channel.choose("1.0.0", set(), tagged=True) == "1.0.0"
+    assert channel.choose("1.2.0", {"1.2.0-rc.1"}) == "1.2.0"
+    assert channel.choose("1.3.0", {"1.2.0"}) == "1.3.0"
+    assert channel.choose("1.2.1", {"1.2.0"}, explicit=True) == "1.2.1"
+    assert channel.choose("1.0.0-rc.1", set()) == "1.0.0"
+    assert channel.choose("1.2.0-rc.1", {"1.2.0-rc.1"}, explicit=True) == "1.2.0-rc.1"
+    with pytest.raises(ValueError, match="stable X.Y.Z"):
+        channel.choose("1.3.0-rc.1", {"1.2.0"}, explicit=True)
+
+
+def test_release_entrypoint_publishes_next_stable_without_review_flag(repository, tmp_path):
+    repository("fix: historical candidate", floor="1.0.0-rc.1")
+    identity.git("tag", "v1.2.0-rc.1")
+    revision = repository("fix(release): publish stable automatically", floor="1.2.0")
+    output = tmp_path / "identity-output"
+    subprocess.run(
+        [sys.executable, str(SCRIPTS / "release_identity.py"), "--output", str(output)],
+        check=True,
+    )
+    fields = dict(line.split("=", 1) for line in output.read_text().splitlines())
+    assert fields == {"version": "1.2.0", "revision": revision, "skip": "false"}

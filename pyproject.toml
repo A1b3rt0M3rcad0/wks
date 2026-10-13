@@ -1,10 +1,10 @@
 [project]
 name = "woobe-knowledge-service"
-version = "1.0.0rc1"
+version = "1.2.0"
 description = "WKS workspace: reusable core and standalone API/frontend"
 requires-python = ">=3.12"
 license = "Apache-2.0"
-dependencies = ["wks-api==1.0.0rc1", "wks-worker-native==1.0.0rc1", "wks-worker-docling==1.0.0rc1", "wks-worker-media==1.0.0rc1", "wks-sdk-python==1.0.0rc1"]
+dependencies = ["wks-api==1.2.0", "wks-worker-native==1.2.0", "wks-worker-docling==1.2.0", "wks-worker-media==1.2.0", "wks-sdk-python==1.2.0"]
 
 [project.optional-dependencies]
 docling = ["wks-worker-docling[models]"]

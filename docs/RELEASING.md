@@ -5,18 +5,20 @@ commit `526d894341449a88b5dbcf0bccf066aa25cb900f`. Só o WKS é modificado.
 
 ## Versão e origem
 
-`VERSION` e os manifests Python do workspace definem o piso revisado, atualmente `0.3.0`.
+`VERSION` e os manifests Python do workspace definem o piso revisado, atualmente `1.2.0`.
 O workflow calcula a próxima versão usando os commits desde a maior tag reservada:
 `feat:` incrementa minor; `fix:` e outros commits incrementam patch;
 `!` ou `BREAKING CHANGE:` incrementam major, ou minor antes de 1.0.
-Prereleases aceitam `X.Y.Z-alpha.N`, `beta.N` e `rc.N`. Wheels usam a forma PEP 440;
-tags, CLI, OpenAPI e imagens conservam SemVer.
+Novas releases usam somente versões estáveis `X.Y.Z`, após os mesmos gates completos.
+Tags candidatas antigas continuam imutáveis e podem ser retomadas; não são criadas
+novas versões `rc`, `alpha` ou `beta`. Wheels, tags, CLI, OpenAPI e imagens conservam
+a mesma identidade de versão.
 
 O publisher não reescreve os manifests nem cria commits de versão. O empacotador aplica
 somente metadados da versão aos arquivos do commit selecionado, preservando os pins e
 hashes das dependências. `wks version` e `/health/live` informam versão e commit.
 
-Push em `master` calcula a versão; push em uma tag `vX.Y.Z` qualifica exatamente essa tag.
+Push em `master` calcula a próxima versão estável; push em uma tag `vX.Y.Z` qualifica exatamente essa tag.
 Disparo manual aceita versão e SHA completo opcional, integrado em `master`.
 Uma tag explícita pode qualificar um commit fora de master. Releases são serializadas;
 um evento atrasado de master é ignorado se uma origem mais recente já foi reservada.
@@ -98,3 +100,15 @@ requirements diretamente com uv, use `--index-strategy unsafe-best-match --requi
 todos os pacotes continuam fixados e seus bytes são verificados pelos hashes do lockfile.
 Os exports de API/nativo/mídia não incluem esse índice. Os Dockerfiles aplicam essa
 configuração somente no Docling.
+
+
+## CLI no npm
+
+A publicação automática de uma release estável instala `wksctl` no canal `latest`.
+A conexão de trusted publishing usa `.github/workflows/npm.yaml` e OIDC.
+As versões candidatas históricas conservam o canal `next` para retomada da mesma tag.
+
+```sh
+npm install -g wksctl
+wksctl init --agents
+```

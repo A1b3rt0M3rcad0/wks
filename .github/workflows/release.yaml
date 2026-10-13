@@ -7,14 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Optional exact version for recovery or prerelease; empty calculates automatically
+        description: Optional stable X.Y.Z version for recovery; empty calculates automatically
         required: false
         type: string
-      stable_reviewed:
-        description: Confirm the reviewed WKS go/no-go gate for stable promotion
-        required: false
-        type: boolean
-        default: false
       revision:
         description: Optional exact master commit for recovery
         required: false
@@ -52,12 +47,9 @@ jobs:
         env:
           WKS_RELEASE_VERSION: ${{ inputs.version }}
           WKS_RELEASE_REVISION: ${{ inputs.revision || (github.event_name == 'push' && github.sha) || '' }}
-          WKS_STABLE_REVIEWED: ${{ inputs.stable_reviewed }}
           WKS_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: |
-          flags=()
-          if [[ "$WKS_STABLE_REVIEWED" == true ]]; then flags+=(--stable-reviewed); fi
-          python scripts/release_identity.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION" --tag "$WKS_RELEASE_TAG" --output "$GITHUB_OUTPUT" "${flags[@]}"
+          python scripts/release_identity.py --version "$WKS_RELEASE_VERSION" --revision "$WKS_RELEASE_REVISION" --tag "$WKS_RELEASE_TAG" --output "$GITHUB_OUTPUT"
   validate:
     needs: identity
     if: needs.identity.outputs.skip != 'true'
