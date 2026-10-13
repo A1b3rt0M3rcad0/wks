@@ -1,0 +1,12 @@
+{
+  "version": {
+    "commit": "cf3e8f6cf7ad8d2286849a89a0f674b33f572006",
+    "version": "1.2.0-rc.1"
+  },
+  "public_registry_install": "passed",
+  "package_checksums_and_launcher": "passed",
+  "live_worker_status": "passed",
+  "lease_recovery_fields": "passed",
+  "agent_skill_install": "passed",
+  "skill_worker_status_guidance": "passed"
+}

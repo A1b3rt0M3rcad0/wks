@@ -1,0 +1,40 @@
+{
+  "version": "1.2.0-rc.1",
+  "revision": "cf3e8f6cf7ad8d2286849a89a0f674b33f572006",
+  "prerelease": true,
+  "release_url": "https://github.com/A1b3rt0M3rcad0/wks/releases/tag/v1.2.0-rc.1",
+  "release_run_url": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38328279482",
+  "assets": 34,
+  "images": {
+    "qualified_platforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "immutable_references": [
+      "ghcr.io/a1b3rt0m3rcad0/wks@sha256:cb3abb1f601a97251d52697225db4de5cf1e11d6d7aace77dd051e72755c6495",
+      "ghcr.io/a1b3rt0m3rcad0/wks-worker-docling@sha256:143ef9a8b1c2bb0bf09873192cc04851c328d10fce4d8646741a37e6b49bf94b",
+      "ghcr.io/a1b3rt0m3rcad0/wks-worker-native@sha256:181cecaeb2ace9d489ece6ef88d6867c243343016636de96b86406d73e378402",
+      "ghcr.io/a1b3rt0m3rcad0/wks-worker-media@sha256:07b13c455b9ca8b15b805bc81df73fa8a3aea1cc82257aedf86a6c0eb58c22c6"
+    ]
+  },
+  "npm": {
+    "package": "wksctl",
+    "version": "1.2.0-rc.1",
+    "channel": "next",
+    "integrity": "sha512-7sfqNB3ui8OCPEYFEv26jQKPuKbXRCqyw9vPc8/1V8BCKHoLKFfqxv4lAtz3XT3WUiOBZ5Sc8SW8J1C36AciDw==",
+    "tarball": "https://registry.npmjs.org/wksctl/-/wksctl-1.2.0-rc.1.tgz",
+    "provenance": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/wksctl@1.2.0-rc.1",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "publish_run_url": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38329911605",
+    "platforms_qualified": [
+      "linux",
+      "macos",
+      "windows"
+    ],
+    "public_registry_verification": "passed"
+  }
+}

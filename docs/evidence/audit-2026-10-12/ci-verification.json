@@ -1,22 +1,22 @@
 {
-  "run_url": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38327188970",
-  "revision": "a6e388374099e4190ab97aad0dc4f9d0994debf2",
+  "run_url": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38328279177",
+  "revision": "cf3e8f6cf7ad8d2286849a89a0f674b33f572006",
   "python_suites": [
     {
       "name": "pytest",
       "errors": "0",
       "failures": "0",
       "skipped": "0",
-      "tests": "227",
-      "time": "251.420",
-      "timestamp": "2026-10-13T00:27:18.292332+00:00"
+      "tests": "228",
+      "time": "250.668",
+      "timestamp": "2026-10-13T00:40:15.125117+00:00"
     }
   ],
   "large_transfer": [
     {
       "classname": "tests.test_large_transfer",
       "name": "test_one_gib_resume_halfway_preserves_full_original",
-      "time": "18.380"
+      "time": "19.380"
     }
   ],
   "client_platforms": {
@@ -27,8 +27,8 @@
   },
   "browser": "passed",
   "browser_stats": {
-    "startTime": "2026-10-13T00:32:02.606Z",
-    "duration": 26819.244,
+    "startTime": "2026-10-13T00:44:57.655Z",
+    "duration": 28792.790999999997,
     "expected": 5,
     "skipped": 0,
     "unexpected": 0,

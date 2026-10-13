@@ -122,9 +122,39 @@ O [registro de verificação](evidence/audit-2026-10-12/local-verification.json)
 conserva separadamente resultados locais e gates da CI/publicação.
 
 
-A [CI da primeira revisão](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38327188970)
-passou com **227 testes Python e cinco testes de browser, zero falhas e zero skips**.
+A [CI completa da revisão final](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38328279177)
+passou com **228 testes Python e cinco testes de browser, zero falhas e zero skips**.
 Inclui upload/retomada de 1 GiB, regressões de empacotamento, ASR/Docling reais e
 CLI/SDK Go com race em Linux, macOS e Windows. A pré-verificação Windows de
 symlink de arquivo/diretório também passou. Consulte o
 [registro da CI](evidence/audit-2026-10-12/ci-verification.json).
+
+
+## Publicação concluída
+
+A [release v1.2.0-rc.1](https://github.com/A1b3rt0M3rcad0/wks/releases/tag/v1.2.0-rc.1)
+aponta para `cf3e8f6cf7ad8d2286849a89a0f674b33f572006`. A
+[pipeline completa de release](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38328279482)
+passou: candidato instalado/verificado, quatro imagens amd64/arm64, decoders reais
+e smoke de API com workers independentes. Os 34 assets e as referências imutáveis
+estão registrados na [verificação da publicação](evidence/audit-2026-10-12/publication-verification.json).
+
+A [publicação npm](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38329911605)
+de `wksctl@1.2.0-rc.1` passou usando OIDC/provenance. A instalação do pacote exato
+e sua Skill foram qualificadas em Windows, macOS e Linux. Uma instalação nova do
+registry público também confirmou versão/commit, checksums/launcher, `worker status`
+contra a API real e a Skill com as orientações de diagnóstico.
+Veja a [verificação da instalação](evidence/audit-2026-10-12/npm-install-verification.json).
+
+Esta publicação é candidata, no canal `next`; `latest` permanece em `1.1.0`.
+Para instalar exatamente as correções:
+
+```sh
+npm install -g wksctl@1.2.0-rc.1
+wksctl worker status
+wksctl init --agents
+```
+
+O relatório original não demonstrou travamento documental. Os cinco pontos foram
+tratados como melhorias genéricas de operação, configuração e qualificação do WKS.
+O PDF privado do relatório e seus identificadores não integram a publicação.
