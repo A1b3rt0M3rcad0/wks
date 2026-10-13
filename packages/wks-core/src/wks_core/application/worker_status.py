@@ -145,10 +145,34 @@ class WorkerStatusService:
             active = dict(
                 db.execute(
                     select(scoped.c.queue, func.count())
-                    .where(scoped.c.status == "running", scoped.c.deadline > instant)
+                    .where(
+                        scoped.c.status == "running",
+                        scoped.c.deadline > instant,
+                        scoped.c.owner.in_(
+                            select(WorkerHeartbeat.owner).where(
+                                WorkerHeartbeat.updated_at > stale_after
+                            )
+                        ),
+                    )
                     .group_by(scoped.c.queue)
                 ).all()
             )
+            recovery = {
+                queue: (count, deadline)
+                for queue, count, deadline in db.execute(
+                    select(scoped.c.queue, func.count(), func.min(scoped.c.deadline))
+                    .where(
+                        scoped.c.status == "running",
+                        scoped.c.deadline > instant,
+                        scoped.c.owner.not_in(
+                            select(WorkerHeartbeat.owner).where(
+                                WorkerHeartbeat.updated_at > stale_after
+                            )
+                        ),
+                    )
+                    .group_by(scoped.c.queue)
+                )
+            }
             successes = dict(
                 db.execute(
                     select(scoped.c.owner, func.max(scoped.c.updated_at))
@@ -237,6 +261,8 @@ class WorkerStatusService:
                 state = "stalled"
             elif progress["eligible"]:
                 state = "queued"
+            elif queue in recovery:
+                state = "lease_recovery_wait"
             elif queue_counts[queue].get("retry_wait", 0):
                 state = "retry_wait"
             else:
@@ -249,6 +275,10 @@ class WorkerStatusService:
                     "capability_ready": ready,
                     "counts": queue_counts[queue],
                     "active": active.get(queue, 0),
+                    "awaiting_lease_expiry": recovery.get(queue, (0, None))[0],
+                    "next_lease_expiry_at": recovery[queue][1].isoformat()
+                    if queue in recovery
+                    else None,
                     **progress,
                 }
             )

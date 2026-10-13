@@ -15,9 +15,13 @@ limitada a 100 registros, sinalizando truncamento. A capacidade das filas é cal
 separadamente da página de processos.
 
 As filas distinguem `worker_unavailable`, `capability_absent`, `stalled`,
-`waiting_capacity`, `processing`, `queued`, `retry_wait` e `idle`. Um backlog antigo
+`waiting_capacity`, `processing`, `queued`, `lease_recovery_wait`, `retry_wait`
+e `idle`. Um backlog antigo
 não é considerado parado se os processos estiverem ocupados. Contagens são do
 escopo autorizado; ocupação dos processos é somente um sinal técnico agregado.
+Um job com owner sem heartbeat válido não é apresentado como processamento ativo.
+Seu lease ainda válido aparece como `lease_recovery_wait`, com contagem e próximo
+vencimento no escopo autorizado; o fencing continua impedindo retomada antecipada.
 O limiar de parada é `WKS_WORKER_STALL_SECONDS` (300 por padrão).
 
 O heartbeat do processo é renovado durante a extração longa. O ciclo de manutenção
@@ -102,7 +106,8 @@ qualificação semântica ou novos formatos presumidos por esse teste.
   falharam. Duas falhas exigiam apontar o backup para o container PostgreSQL local;
   duas expuseram validação de ACK insuficiente e foram corrigidas no SDK.
   A reexecução de 22 testes relevantes passou integralmente, sem skips. A revisão
-  final de capacidade também passou nos oito testes de diagnóstico de workers.
+  final de capacidade e recuperação do lease passou nos nove testes de diagnóstico
+  de workers.
 - ASR real, frames de vídeo, Docling local e a matriz de formatos foram executados.
   O provider externo de visão não foi homologado; o teste de conexão/coverage usa
   uma resposta controlada e é identificado como tal.
@@ -115,3 +120,11 @@ qualificação semântica ou novos formatos presumidos por esse teste.
 
 O [registro de verificação](evidence/audit-2026-10-12/local-verification.json)
 conserva separadamente resultados locais e gates da CI/publicação.
+
+
+A [CI da primeira revisão](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38327188970)
+passou com **227 testes Python e cinco testes de browser, zero falhas e zero skips**.
+Inclui upload/retomada de 1 GiB, regressões de empacotamento, ASR/Docling reais e
+CLI/SDK Go com race em Linux, macOS e Windows. A pré-verificação Windows de
+symlink de arquivo/diretório também passou. Consulte o
+[registro da CI](evidence/audit-2026-10-12/ci-verification.json).

@@ -23,12 +23,26 @@
     "skipped": 0,
     "seconds": 98.88
   },
-  "ci": "pending",
+  "ci": {
+    "result": "passed",
+    "run_url": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38327188970",
+    "python_tests": 227,
+    "python_failures": 0,
+    "python_skipped": 0,
+    "browser_tests": 5,
+    "browser_skipped": 0,
+    "large_transfer_1_gib": "passed",
+    "full_packaging_regressions": "passed",
+    "windows_symlink_privilege_and_confinement": "passed",
+    "linux_macos_windows_cli_sdk_go_race": "passed",
+    "revision": "a6e388374099e4190ab97aad0dc4f9d0994debf2",
+    "scope": "preliminary revision; final lease-recovery correction additionally qualified locally and to be requalified in CI"
+  },
   "final_worker_run": {
-    "tests": 8,
-    "passed": 8,
+    "tests": 9,
+    "passed": 9,
     "failed": 0,
     "skipped": 0,
-    "seconds": 26.43
+    "seconds": 28.64
   }
 }

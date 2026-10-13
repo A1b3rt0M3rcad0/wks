@@ -116,7 +116,9 @@ mesmo path e `--queues` do processo. Containers já isolam seus identity files e
 Liveness não comprova processamento: consulte `worker status`, status da operação,
 parser e coverage. `capability_absent` pode coexistir com processo vivo; `stalled`
 indica trabalho elegível antigo sem processo disponível avançando a fila.
-`waiting_capacity` evita confundir ocupação de réplicas com parada. O histórico
+`waiting_capacity` evita confundir ocupação de réplicas com parada.
+`lease_recovery_wait` informa um lease ainda válido cujo owner perdeu o heartbeat,
+com contagem e próximo vencimento; ele não é contado como processamento ativo. O histórico
 retornado é autorizado para o cliente/grant, sem conteúdo ou tokens nos diagnósticos.
 
 Para habilitar os modelos locais com configuração consistente:

@@ -154,3 +154,17 @@ def test_only_live_capable_owners_contribute_to_busy_capacity(env):
         db.get(WorkerHeartbeat, busy.owner).updated_at = now() - timedelta(seconds=100)
     Worker(env["s"], queues=("native",))
     assert queue(env["s"].worker_status(env["a"]), "native")["state"] == "stalled"
+
+
+def test_stale_owner_with_valid_lease_is_waiting_recovery_not_processing(env):
+    register_text(env)
+    stopped = Worker(env["s"], queues=("native",))
+    assert stopped.claim()
+    assert queue(env["s"].worker_status(env["a"]), "native")["state"] == "processing"
+    with env["s"].sessions.begin() as db:
+        db.get(WorkerHeartbeat, stopped.owner).updated_at = now() - timedelta(seconds=100)
+    Worker(env["s"], queues=("native",))
+    report = queue(env["s"].worker_status(env["a"]), "native")
+    assert report["state"] == "lease_recovery_wait"
+    assert report["active"] == 0 and report["eligible"] == 0
+    assert report["awaiting_lease_expiry"] == 1 and report["next_lease_expiry_at"]
