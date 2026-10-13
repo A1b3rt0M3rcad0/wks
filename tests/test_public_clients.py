@@ -66,6 +66,9 @@ def test_cli_real_auth_create_read_export_and_declarative_sync(env, server, cli,
     assert login["authenticated"]
     assert env["a_token"] not in json.dumps(login)
     assert invoke(cli, config, "doctor")["health"]["status"] == "ready"
+    diagnostics = invoke(cli, config, "worker", "status")
+    assert diagnostics["scope"] == "authorized_source_versions"
+    assert next(row for row in diagnostics["queues"] if row["queue"] == "native")["process_alive"]
     namespace = invoke(
         cli, config, "namespace", "create", "--title", "CLI namespace", "--key", "cli-namespace"
     )["id"]

@@ -1,0 +1,123 @@
+{
+  "dataset": "wks-synthetic-lexical-audit-v2",
+  "license": "CC0-1.0",
+  "documents": [
+    {
+      "id": "physics-pt",
+      "title": "Eletricidade",
+      "text": "A resistência elétrica limita a corrente em um circuito paralelo.",
+      "language": "pt"
+    },
+    {
+      "id": "physics-en",
+      "title": "Electrical engineering",
+      "text": "Electrical resistance limits current in a parallel circuit.",
+      "language": "en"
+    },
+    {
+      "id": "history",
+      "title": "Biblioteca",
+      "text": "A biblioteca registra fontes históricas e preserva seus documentos.",
+      "language": "pt"
+    },
+    {
+      "id": "chemistry",
+      "title": "Química",
+      "text": "A água evapora quando recebe calor suficiente.",
+      "language": "pt"
+    },
+    {
+      "id": "car-synonym",
+      "title": "Transporte A",
+      "text": "O automóvel recebe revisão técnica periódica.",
+      "language": "pt"
+    },
+    {
+      "id": "car-literal",
+      "title": "Transporte B",
+      "text": "O carro passa por inspeção da oficina.",
+      "language": "pt"
+    },
+    {
+      "id": "legal",
+      "title": "Conformidade",
+      "text": "O laudo certifica a conformidade contratual e registra intercorrências.",
+      "language": "pt"
+    },
+    {
+      "id": "medical",
+      "title": "Ficha clínica",
+      "text": "O paciente realizou avaliação cardiológica e exame preventivo.",
+      "language": "pt"
+    }
+  ],
+  "queries": [
+    {
+      "id": "pt-stemming",
+      "query": "resistência",
+      "language": "pt",
+      "relevance": {
+        "physics-pt": 3
+      }
+    },
+    {
+      "id": "english-phrase",
+      "query": "parallel circuit",
+      "language": "simple",
+      "mode": "phrase",
+      "relevance": {
+        "physics-en": 3
+      }
+    },
+    {
+      "id": "unicode-history",
+      "query": "históricas",
+      "language": "pt",
+      "relevance": {
+        "history": 3
+      }
+    },
+    {
+      "id": "chemistry",
+      "query": "calor",
+      "language": "pt",
+      "relevance": {
+        "chemistry": 3
+      }
+    },
+    {
+      "id": "literal-only-no-semantic-expansion",
+      "query": "carro",
+      "language": "pt",
+      "relevance": {
+        "car-literal": 3,
+        "car-synonym": 0
+      }
+    },
+    {
+      "id": "explicit-synonym-or",
+      "query": "carro OR automóvel",
+      "language": "pt",
+      "relevance": {
+        "car-literal": 3,
+        "car-synonym": 3
+      }
+    },
+    {
+      "id": "legal-diacritics",
+      "query": "intercorrencias",
+      "language": "pt",
+      "relevance": {
+        "legal": 3
+      }
+    },
+    {
+      "id": "medical-stemming",
+      "query": "cardiológicas",
+      "language": "pt",
+      "relevance": {
+        "medical": 3
+      }
+    }
+  ]
+}

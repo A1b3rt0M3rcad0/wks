@@ -6,6 +6,8 @@ import os
 import signal
 import threading
 import time
+from pathlib import Path
+from tempfile import gettempdir
 
 from wks_core.bootstrap import build
 
@@ -18,6 +20,12 @@ def main(profile=None):
     parser.add_argument(
         "--queues",
         default=profile or os.environ.get("WKS_WORKER_QUEUES") or ",".join(available_queues()),
+    )
+    parser.add_argument("--healthcheck", action="store_true")
+    parser.add_argument(
+        "--health-file",
+        default=os.environ.get("WKS_WORKER_HEALTH_FILE")
+        or str(Path(gettempdir()) / ("wks-worker-" + (profile or "all") + "-health.json")),
     )
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--reconcile", action="store_true")
@@ -37,6 +45,19 @@ def main(profile=None):
     queues = validate_queues(tuple(args.queues.split(",")))
     if profile and queues != (profile,):
         parser.error("This executable consumes only its own queue")
+    if args.healthcheck:
+        from wks_worker.health import probe
+
+        try:
+            service, engine = build()
+            try:
+                result = probe(service, args.health_file, queues)
+            finally:
+                engine.dispose()
+        except Exception:
+            result = {"liveness": "unavailable", "reason": "probe_unavailable"}
+        print(json.dumps(result))
+        raise SystemExit(0 if result["liveness"] == "alive" else 1)
     service, engine = build()
     metrics_server = None
     try:
@@ -47,6 +68,9 @@ def main(profile=None):
 
             metrics_server, _ = start_http_server(args.metrics_port, addr="127.0.0.1")
         worker = Worker(service, queues=queues)
+        from wks_worker.health import write_identity
+
+        write_identity(args.health_file, worker.owner, queues)
         if args.reconcile:
             print(worker.reconcile())
             return

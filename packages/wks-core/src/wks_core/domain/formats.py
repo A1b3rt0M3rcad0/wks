@@ -150,7 +150,16 @@ class FormatRegistry:
     def get(self, mime):
         return next((spec for spec in self.specs if spec.mime == mime), None)
 
-    def public(self, healthy_queues, limits, optional_enabled=False, producer_versions=None):
+    def public(
+        self,
+        healthy_queues,
+        limits,
+        optional_enabled=False,
+        producer_versions=None,
+        extraction_profile="native",
+    ):
+        from wks_core.processing import processing_queue
+
         def enabled(spec):
             return not spec.optional or (
                 optional_enabled.get(spec.format, False)
@@ -161,18 +170,23 @@ class FormatRegistry:
         return [
             {
                 **asdict(spec),
+                "queue": processing_queue(spec.mime, extraction_profile),
                 "modalities": list(spec.modalities),
                 "fixtures": list(spec.fixtures),
                 "detected_mime": spec.mime,
-                "extractor_version": (producer_versions or {}).get(spec.queue),
+                "extractor_version": (producer_versions or {}).get(
+                    processing_queue(spec.mime, extraction_profile)
+                ),
                 "can_store": True,
-                "can_extract": spec.queue in healthy_queues and enabled(spec),
+                "can_extract": processing_queue(spec.mime, extraction_profile) in healthy_queues
+                and enabled(spec),
                 "supported_modalities": list(spec.modalities),
                 "max_input_size": limits["upload_max_bytes"],
                 "max_pages": limits["process_max_pages"],
                 "quality_level": "functional_fixtures; accuracy_not_measured",
                 "availability": "enabled"
-                if spec.queue in healthy_queues and enabled(spec)
+                if processing_queue(spec.mime, extraction_profile) in healthy_queues
+                and enabled(spec)
                 else "worker_or_profile_unavailable",
             }
             for spec in self.specs

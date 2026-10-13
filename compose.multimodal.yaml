@@ -1,0 +1,27 @@
+# Opt-in local models. Download and verify weights before enabling this overlay.
+# docker compose -f compose.yaml -f compose.multimodal.yaml --profile docling up -d
+services:
+  api:
+    environment: &multimodal
+      WKS_ASR_ENABLED: 'true'
+      WKS_VIDEO_ENABLED: 'true'
+      WKS_ASR_MODEL_PATH: /models/asr-tiny
+      WKS_DOCLING_ARTIFACTS_PATH: /models/docling
+      WKS_EXTRACTION_PROFILE: docling
+    volumes:
+      - ./.local/models:/models:ro
+  worker:
+    environment: *multimodal
+    volumes:
+      - ./.local/models:/models:ro
+  worker-media:
+    environment: *multimodal
+    build:
+      args:
+        WKS_WORKER_EXTRA: --extra asr
+    volumes:
+      - ./.local/models:/models:ro
+  worker-docling:
+    environment: *multimodal
+    volumes:
+      - ./.local/models:/models:ro

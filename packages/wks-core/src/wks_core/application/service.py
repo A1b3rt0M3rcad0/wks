@@ -22,6 +22,7 @@ from wks_core.application.reading import ReadingService
 from wks_core.application.search import SearchService
 from wks_core.application.transfers import TransferService
 from wks_core.application.utilities import digest, file_digest
+from wks_core.application.worker_status import WorkerStatusService
 from wks_core.domain.models import Error, new_id, not_found
 from wks_core.storage.database import (
     Asset,
@@ -49,6 +50,7 @@ class Service(
     TransferService,
     SearchService,
     CapabilitiesService,
+    WorkerStatusService,
     ExportService,
     ReadingService,
     ManagementService,

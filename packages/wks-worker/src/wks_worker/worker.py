@@ -31,6 +31,10 @@ from wks_core.storage.database import (
 )
 
 
+def heartbeat_interval(lease_seconds):
+    return min(15.0, max(0.2, lease_seconds / 3))
+
+
 class Worker:
     def __init__(self, service, owner=None, queues=None):
         from wks_worker.capabilities import available_queues, validate_queues
@@ -95,6 +99,7 @@ class Worker:
                 "profiles": {queue: version("wks-worker-" + queue) for queue in self.queues},
                 "ocr_enabled": settings.ocr_enabled and bool(which("tesseract")),
                 "asr_enabled": asr_ready,
+                "docling_enabled": docling_ready,
                 "video_enabled": video_ready,
             }
             row.updated_at = now()
@@ -177,6 +182,7 @@ class Worker:
         return None
 
     def heartbeat(self, lease):
+        self.announce()
         with self.service.sessions.begin() as db:
             run = db.scalar(
                 select(ProcessingRun).where(ProcessingRun.id == lease["id"]).with_for_update()
@@ -423,7 +429,7 @@ class Worker:
         stop = threading.Event()
 
         def heartbeats():
-            while not stop.wait(max(0.2, self.service.settings.job_lease_seconds / 3)):
+            while not stop.wait(heartbeat_interval(self.service.settings.job_lease_seconds)):
                 if not self.heartbeat(lease):
                     break
 
@@ -578,8 +584,9 @@ class Worker:
         except ValueError:
             result.warnings.append("enrichment_unavailable")
             return
+        visual_assets = [asset for asset in result.assets if asset.media_type.startswith("image/")]
         enriched = 0
-        for asset in result.assets[: self.service.settings.enrichment_max_assets]:
+        for asset in visual_assets[: self.service.settings.enrichment_max_assets]:
             if not asset.media_type.startswith("image/"):
                 continue
             operation = digest(
@@ -606,8 +613,15 @@ class Worker:
             except Error as exc:
                 result.warnings.append(exc.code)
         result.coverage["visual"] = {
-            "state": "partial" if enriched < len(result.assets) else "described",
-            "assets_identified": len(result.assets),
+            "state": "not_applicable"
+            if not visual_assets
+            else "pending"
+            if not enriched
+            else "partial"
+            if enriched < len(visual_assets)
+            else "described",
+            "semantic_completeness": "not_measured",
+            "assets_identified": len(visual_assets),
             "assets_enriched": enriched,
         }
 

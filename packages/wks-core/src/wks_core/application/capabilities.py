@@ -45,9 +45,20 @@ class CapabilitiesService:
             "formats": FormatRegistry().public(
                 queues,
                 limits,
+                extraction_profile=self.settings.extraction_profile,
                 optional_enabled={
-                    "wav": any(row.capabilities.get("asr_enabled") for row in rows),
-                    "mp4": any(row.capabilities.get("video_enabled") for row in rows),
+                    "wav": self.settings.asr_enabled
+                    and any(
+                        "media" in row.capabilities.get("ready_queues", [])
+                        and row.capabilities.get("asr_enabled")
+                        for row in rows
+                    ),
+                    "mp4": self.settings.video_enabled
+                    and any(
+                        "media" in row.capabilities.get("ready_queues", [])
+                        and row.capabilities.get("video_enabled")
+                        for row in rows
+                    ),
                 },
                 producer_versions={
                     queue: row.capabilities.get("profiles", {}).get(queue)
@@ -55,6 +66,46 @@ class CapabilitiesService:
                     for queue in row.queues
                 },
             ),
+            "modalities": {
+                "ocr": {
+                    "configured": self.settings.ocr_enabled,
+                    "worker_ready": any(
+                        set(row.capabilities.get("ready_queues", [])) & {"native", "docling"}
+                        and row.capabilities.get("ocr_enabled")
+                        for row in rows
+                    ),
+                    "scope": "text_recognition; not_visual_semantics",
+                },
+                "asr": {
+                    "configured": self.settings.asr_enabled,
+                    "worker_ready": any(
+                        "media" in row.capabilities.get("ready_queues", [])
+                        and row.capabilities.get("asr_enabled")
+                        for row in rows
+                    ),
+                    "scope": "probabilistic_speech_transcription; not_audio_event_semantics",
+                },
+                "video_frames": {
+                    "configured": self.settings.video_enabled,
+                    "worker_ready": any(
+                        "media" in row.capabilities.get("ready_queues", [])
+                        and row.capabilities.get("video_enabled")
+                        for row in rows
+                    ),
+                    "scope": "bounded_frame_sampling; not_complete_visual_interpretation",
+                },
+                "docling_layout": {
+                    "configured": self.settings.extraction_profile == "docling",
+                    "worker_ready": "docling" in queues,
+                    "scope": "layout_and_tables; accuracy_not_measured",
+                },
+                "visual_description": {
+                    "configured": self.settings.enrichment_provider == "http"
+                    and bool(self.settings.enrichment_endpoint),
+                    "qualification": "external_provider_not_qualified",
+                    "scope": "generated_descriptions; semantic_completeness_not_measured",
+                },
+            },
             "limits": limits,
             "search_modes": ["lexical", "phrase", "exact", "fuzzy", "proximity"],
             "worker_queues": queues,

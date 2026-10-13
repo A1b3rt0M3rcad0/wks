@@ -53,12 +53,22 @@ class AudioProcessor:
             )
         return ExtractedRepresentation(
             blocks=blocks,
+            availability="text_ready" if blocks else "metadata_only",
             processor_name="faster-whisper",
             processor_version=version("faster-whisper"),
             warnings=["Transcription is probabilistic; non-speech audio is not interpreted"],
             coverage={
-                "audio": {"state": "complete", "duration_seconds": duration},
-                "text": {"state": "complete"},
+                "audio": {
+                    "state": "complete" if blocks else "partial",
+                    "duration_seconds": duration,
+                    "scope": "speech_transcription",
+                },
+                "transcription": {
+                    "state": "complete" if blocks else "no_speech_detected",
+                    "quality": "unverified_transcription",
+                },
+                "audio_semantics": {"state": "not_interpreted", "scope": "non_speech_events"},
+                "text": {"state": "complete" if blocks else "pending"},
             },
         )
 
@@ -91,7 +101,14 @@ class VideoProcessor:
         out = ExtractedRepresentation(
             processor_name="ffmpeg-video",
             availability="text_partial",
-            coverage={"visual": {"state": "sampled", "duration_seconds": duration}},
+            coverage={
+                "visual": {
+                    "state": "sampled",
+                    "semantic_state": "not_interpreted",
+                    "scope": "bounded_frame_sampling",
+                    "duration_seconds": duration,
+                }
+            },
         )
         from tempfile import TemporaryDirectory
 

@@ -25,6 +25,7 @@ services:
       WKS_STORAGE_PATH: /app/.local/objects
       WKS_HTTP_HOST: 0.0.0.0
       WKS_OCR_LANGUAGE: por+eng
+      WKS_WORKER_STALL_SECONDS: ${WKS_WORKER_STALL_SECONDS:-300}
       WKS_ENV: ${WKS_ENV:-development}
       WKS_WEB_PUBLIC_ORIGIN: ${WKS_WEB_PUBLIC_ORIGIN:-}
       WKS_WEB_SESSION_TTL_SECONDS: ${WKS_WEB_SESSION_TTL_SECONDS:-28800}
@@ -70,6 +71,12 @@ services:
         condition: service_completed_successfully
     stop_grace_period: 360s
     command: ["wks-worker-native"]
+    healthcheck:
+      test: ["CMD", "wks-worker-native", "--healthcheck"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
     deploy:
       resources:
@@ -92,6 +99,12 @@ services:
         condition: service_completed_successfully
     stop_grace_period: 360s
     command: ["wks-worker-media"]
+    healthcheck:
+      test: ["CMD", "wks-worker-media", "--healthcheck"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
     deploy:
       resources:
@@ -115,6 +128,12 @@ services:
         condition: service_completed_successfully
     stop_grace_period: 360s
     command: ["wks-worker-docling"]
+    healthcheck:
+      test: ["CMD", "wks-worker-docling", "--healthcheck"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
     deploy:
       resources:

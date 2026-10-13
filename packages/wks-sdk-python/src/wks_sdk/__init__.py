@@ -249,7 +249,12 @@ class Client:
     ) -> dict:
         path = "/v1/uploads/" + quote(identity, safe="")
         status = self.call("GET", path)
-        if not 0 <= status["offset"] <= status["expected_size"]:
+        if (
+            type(status.get("offset")) is not int
+            or type(status.get("expected_size")) is not int
+            or not 0 <= status["offset"] <= status["expected_size"]
+            or status.get("upload_id", identity) != identity
+        ):
             raise WksError("contract.invalid_offset", "Invalid server upload offset")
         source.seek(status["offset"])
         while status["offset"] < status["expected_size"]:
@@ -266,10 +271,27 @@ class Client:
                     }
                 )
             )
-            with self.request(
-                "PUT", part, chunk, content_type="application/octet-stream"
-            ) as response:
-                status = json.loads(response.read(65536))
+            previous = status
+            try:
+                with self.request(
+                    "PUT", part, chunk, content_type="application/octet-stream"
+                ) as response:
+                    status = json.loads(response.read(65536))
+                if (
+                    type(status["offset"]) is not int
+                    or type(status["expected_size"]) is not int
+                    or status.get("upload_id", identity) != identity
+                    or status["expected_size"] != previous["expected_size"]
+                    or status["offset"] != previous["offset"] + len(chunk)
+                ):
+                    raise ValueError("Unconfirmed upload progress")
+            except (OSError, ValueError, KeyError, TypeError, http.client.HTTPException):
+                raise WksError(
+                    "transport.response_invalid",
+                    "Upload acknowledgement could not be confirmed; query upload status before resuming",
+                    retryable=True,
+                    write_outcome="unknown",
+                ) from None
             if progress:
                 progress(status["offset"], status["expected_size"])
         return status

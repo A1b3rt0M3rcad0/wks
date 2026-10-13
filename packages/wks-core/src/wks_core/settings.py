@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     process_max_pages: int = Field(default=200, ge=1, le=10000)
     processing_timeout_seconds: int = Field(default=300, ge=1)
     process_max_memory_mb: int = Field(default=4096, ge=256)
+    worker_stall_seconds: int = Field(default=300, ge=30, le=86400)
     job_lease_seconds: int = Field(default=360, ge=1)
     action_requests_per_minute: int = Field(default=600, ge=0, le=100000)
     namespace_max_concurrent_jobs: int = Field(default=2, ge=1, le=32)

@@ -92,8 +92,44 @@ A migração append-only 0007 adiciona e preenche as filas dos jobs existentes c
 no MIME e na política armazenada. Ela preserva configurações, digests, tentativas, leases,
 fontes e contas. Ao atualizar de 0.2.0, pare os workers antigos, execute a migração e suba
 os novos workers e a API. Não mantenha um worker antigo sem filtro de fila em execução.
-Backup/restore da versão atual exige schema 0007. Guarde um backup anterior com sua versão
+Backup/restore exige o schema registrado no manifesto do backup (atualmente 0015). Guarde um backup anterior com sua versão
 correspondente antes de atualizar. Restore invalida sessões e preserva filas e histórico.
 
 `wks-worker --once` executa no máximo um job elegível; `--reconcile` reconcilia expurgos e
 relata objetos órfãos. Esses comandos pertencem ao runtime, sem dependência da API.
+
+## Probes e diagnóstico por processo
+
+```sh
+wksctl capabilities
+wksctl worker status
+wks-worker-native --healthcheck
+wks-worker-media --healthcheck
+wks-worker-docling --healthcheck
+```
+
+Os probes consultam o identity file daquele processo e seu heartbeat no banco.
+Um heartbeat de outra réplica não mascara um processo parado. Em várias instâncias
+no mesmo host, use `--health-file` diferente por instância; o probe deve receber o
+mesmo path e `--queues` do processo. Containers já isolam seus identity files em `/tmp`.
+
+Liveness não comprova processamento: consulte `worker status`, status da operação,
+parser e coverage. `capability_absent` pode coexistir com processo vivo; `stalled`
+indica trabalho elegível antigo sem processo disponível avançando a fila.
+`waiting_capacity` evita confundir ocupação de réplicas com parada. O histórico
+retornado é autorizado para o cliente/grant, sem conteúdo ou tokens nos diagnósticos.
+
+Para habilitar os modelos locais com configuração consistente:
+
+```sh
+uv run --no-sync python scripts/download_models.py --destination .local/models/asr-tiny
+uv run --no-sync python scripts/download_models.py --docling --destination .local/models/docling
+docker compose -f compose.yaml -f compose.multimodal.yaml --profile docling up --build -d
+```
+
+OCR não interpreta significado visual; ASR não interpreta eventos de áudio e
+transcrição é probabilística. Vídeo amostra frames, e Docling extrai layout/tabelas.
+Um provider de descrições visuais é configurado separadamente; sua conexão funcional
+não prova qualidade ou semântica completa. Confira flags/capabilities antes de
+submeter documentos e preserve pending/partial/not_interpreted na aplicação cliente.
+Veja [as correções e critérios da auditoria](AUDIT_CORRECTIONS.md).

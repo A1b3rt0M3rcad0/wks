@@ -20,6 +20,7 @@ var Commands = []Command{
 	{"collection delete", "DELETE", "/v1/collections/{id}", "Delete a collection while keeping source bytes", true, true},
 	{"representation get", "GET", "/v1/representations/{id}", "Read immutable producer and coverage metadata", false, false},
 	{"source deletion", "GET", "/v1/sources/{id}/deletion", "Inspect physical cleanup after revocation", false, false},
+	{"worker status", "GET", "/v1/workers/status", "Inspect scoped worker liveness, backlog, retries, parser and coverage", false, false},
 	{"capabilities", "GET", "/v1/capabilities", "Inspect live formats, budgets and worker availability", false, false},
 	{"namespace list", "GET", "/v1/namespaces", "List owned or granted namespaces", false, false},
 	{"namespace get", "GET", "/v1/namespaces/{id}", "Read namespace metadata and revision", false, false},

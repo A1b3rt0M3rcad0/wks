@@ -175,6 +175,10 @@ jobs:
           cache-dependency-path: packages/wksctl/go.sum
       - run: go test -race -count=1 ./...
         working-directory: packages/wks-sdk-go
+      - name: Qualify Windows file/directory symlink privilege (required)
+        if: runner.os == 'Windows'
+        run: go test -count=1 -run TestSymlinkPrerequisiteFileAndDirectory ./internal/config
+        working-directory: packages/wksctl
       - run: go test -race -count=1 ./...
         working-directory: packages/wksctl
       - run: go build -trimpath -o wksctl${{ runner.os == 'Windows' && '.exe' || '' }} ./cmd/wksctl

@@ -797,6 +797,10 @@ def create_app(service=None, engine=None):
     def export_content(id: UUID, request: Request, p=Depends(auth)):
         return binary_response(request, p, eid=str(id))
 
+    @app.get("/v1/workers/status", response_model=contracts.WorkerStatusResponse)
+    def worker_status(p=Depends(auth)):
+        return service.worker_status(p)
+
     @app.get("/v1/capabilities", response_model=contracts.CapabilityResponse)
     def capabilities(p=Depends(auth)):
         return service.capabilities(p)

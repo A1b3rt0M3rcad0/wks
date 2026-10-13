@@ -101,6 +101,13 @@ Leia [aceitação](docs/ACCEPTANCE.md), [evidências atuais](docs/verification-2
 e [operação](docs/OPERATIONS.md). O plano original foi preservado em
 [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md); o escopo de entrega executado é WKS.
 
+## Diagnóstico dos workers
+
+`wksctl worker status` (ou `GET /v1/workers/status`) distingue processo vivo,
+fila parada e capability ausente, com histórico limitado ao escopo autorizado.
+Veja as [correções da auditoria](docs/AUDIT_CORRECTIONS.md) e o
+[overlay multimodal opcional](docs/WORKERS.md) para probes, modelos e limites de cobertura.
+
 ## Releases
 
 O workflow [Release WKS](.github/workflows/release.yaml) executa em `master`, tags `v*`

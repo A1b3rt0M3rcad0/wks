@@ -88,3 +88,12 @@ já publicada só é aceita novamente se o tarball tiver a mesma integridade SHA
 
 A conexão trusted publisher deve autorizar somente `npm.yaml`; não é preciso
 cadastrar `release.yaml`. Veja os [campos exatos no npm](NPM_PUBLISHING.md).
+
+## Diagnóstico dos processamentos
+
+`wksctl worker status` consulta `/v1/workers/status`: distingue heartbeat/liveness,
+capability ausente, filas paradas/ocupadas e retries. Contagens e último parser/cobertura
+são limitados às fontes/versões autorizadas para o cliente/grant. Compare esse diagnóstico
+com `operation get --id ID`; processo vivo não equivale a extração completa.
+Em Windows, os testes de symlink exigem Developer Mode ou `SeCreateSymbolicLinkPrivilege`;
+a CLI de uso normal não exige criação de symlinks. O gate não ignora esses testes.

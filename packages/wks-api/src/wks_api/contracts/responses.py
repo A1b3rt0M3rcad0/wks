@@ -244,6 +244,8 @@ class ExportResponse(Response):
 
 
 class CapabilityResponse(Response):
+    modalities: dict[str, dict[str, JsonValue]]
+    worker_health: list[dict[str, JsonValue]]
     version: str
     representation_schema_version: str
     formats: list[dict[str, JsonValue]]
@@ -375,3 +377,13 @@ class ContainerLifecycleResponse(Response):
     revision: int
     state: str
     source_bytes_deleted: bool
+
+
+class WorkerStatusResponse(Response):
+    observed_at: str
+    heartbeat_ttl_seconds: int
+    stall_seconds: int
+    scope: str
+    workers: list[dict[str, JsonValue]]
+    queues: list[dict[str, JsonValue]]
+    truncated: bool

@@ -38,6 +38,9 @@ func Load(path string) (Config, error) {
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return value, errors.New("context file must be a regular private file")
 	}
+	if parent, err := os.Lstat(filepath.Dir(path)); err != nil || parent.Mode()&os.ModeSymlink != 0 {
+		return value, errors.New("context directory must not be a symlink")
+	}
 	if e := CheckPrivate(path); e != nil {
 		return value, e
 	}

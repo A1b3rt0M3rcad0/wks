@@ -115,3 +115,31 @@ def test_sdk_partial_success_response_keeps_unknown_write_outcome():
             client.create_text("namespace", "title", "text", key="recover-by-receipt")
         assert caught.value.write_outcome == "unknown"
         assert caught.value.operation_key == "recover-by-receipt"
+
+
+@pytest.mark.parametrize(
+    "ack",
+    [
+        {"offset": 0, "expected_size": 4},
+        {"offset": True, "expected_size": 4},
+        {"offset": 4, "expected_size": 5},
+        {"offset": 4, "expected_size": 4, "upload_id": "different-upload"},
+        {"offset": 4.0, "expected_size": 4},
+    ],
+)
+def test_sdk_upload_never_advances_without_consistent_ack(ack):
+    writes = []
+
+    def handler(request):
+        if request.command == "GET":
+            respond(request, {"upload_id": "expected-upload", "offset": 0, "expected_size": 4})
+        else:
+            writes.append(request.path)
+            request.rfile.read(int(request.headers["Content-Length"]))
+            respond(request, ack)
+
+    with server(handler) as client:
+        with pytest.raises(WksError) as error:
+            client.resume_upload("expected-upload", io.BytesIO(b"data"))
+        assert error.value.write_outcome == "unknown"
+        assert len(writes) == 1

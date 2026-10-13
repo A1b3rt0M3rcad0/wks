@@ -83,7 +83,9 @@ func TestManifestRejectsWorkspaceEscapesAndSecretsFields(t *testing.T) {
 	root := t.TempDir()
 	outside := filepath.Join(t.TempDir(), "private")
 	os.WriteFile(outside, []byte("private"), 0600)
-	os.Symlink(outside, filepath.Join(root, "escape"))
+	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+		t.Fatalf("symlink creation prerequisite unavailable; confinement test is required: %v", err)
+	}
 	if _, e := confinedFile(root, "escape"); e == nil {
 		t.Fatal("symlink escaped workspace")
 	}

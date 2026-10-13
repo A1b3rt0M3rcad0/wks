@@ -1,0 +1,34 @@
+{
+  "report_date": "2026-10-12",
+  "scope": "WKS only; synthetic fixtures; private report PDF not reproduced or published",
+  "lint": "passed",
+  "linux_cli_go_race": "passed",
+  "live_api_cli_worker_status": "passed",
+  "native_worker_profile_healthcheck": "passed",
+  "schema": "0015; no new migration",
+  "broad_python_run": {
+    "tests": 223,
+    "passed": 219,
+    "failed": 4,
+    "skipped": 0,
+    "deselected": 2,
+    "seconds": 1017.26,
+    "failures": "Two backup tests needed WKS_PG_TEST_CONTAINER for the existing local PostgreSQL container; two ACK cases exposed missing strict validation, corrected and retested."
+  },
+  "local_resource_gates": "1 GiB transfer and two full packaging tests delegated to full CI; no tests disabled in CI",
+  "final_targeted_run": {
+    "tests": 22,
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 98.88
+  },
+  "ci": "pending",
+  "final_worker_run": {
+    "tests": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 26.43
+  }
+}

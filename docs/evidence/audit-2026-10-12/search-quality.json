@@ -1,0 +1,70 @@
+{
+  "query_count": 8,
+  "k": 10,
+  "mean_recall_at_k": 1.0,
+  "mean_ndcg_at_k": 1.0,
+  "mean_seconds": 0.158143352746265,
+  "queries": [
+    {
+      "query_id": "pt-stemming",
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "seconds": 0.21219780703540891,
+      "next_cursor": false
+    },
+    {
+      "query_id": "english-phrase",
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "seconds": 0.25809309899341315,
+      "next_cursor": false
+    },
+    {
+      "query_id": "unicode-history",
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "seconds": 0.186682186962571,
+      "next_cursor": false
+    },
+    {
+      "query_id": "chemistry",
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "seconds": 0.1460458139772527,
+      "next_cursor": false
+    },
+    {
+      "query_id": "literal-only-no-semantic-expansion",
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "seconds": 0.11987332097487524,
+      "next_cursor": false
+    },
+    {
+      "query_id": "explicit-synonym-or",
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "seconds": 0.12028710701270029,
+      "next_cursor": false
+    },
+    {
+      "query_id": "legal-diacritics",
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "seconds": 0.1199599530082196,
+      "next_cursor": false
+    },
+    {
+      "query_id": "medical-stemming",
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "seconds": 0.10200753400567919,
+      "next_cursor": false
+    }
+  ],
+  "scope": "supplied qrels only; no external quality or capacity certification",
+  "dataset": "wks-synthetic-lexical-audit-v2",
+  "documents": 208,
+  "private_documents": 1,
+  "extraction": "synthetic canonical blocks; decoder matrix qualified separately"
+}
