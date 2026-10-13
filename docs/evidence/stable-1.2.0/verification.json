@@ -1,0 +1,74 @@
+{
+  "version": "1.2.0",
+  "revision": "2ff1648abcb16bd63afe9cba435675cf190e7326",
+  "ci_url": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38332286033",
+  "python_suites": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "229",
+      "time": "363.820",
+      "timestamp": "2026-10-13T01:29:37.539815+00:00"
+    }
+  ],
+  "browser_stats": {
+    "startTime": "2026-10-13T01:36:21.206Z",
+    "duration": 29961.495,
+    "expected": 5,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "client_platforms": [
+    "linux",
+    "macos",
+    "windows"
+  ],
+  "lint": "passed",
+  "frozen_sync": "passed",
+  "release_policy_tests": "25 passed; packaging tests executed in full CI",
+  "release": {
+    "version": "1.2.0",
+    "url": "https://github.com/A1b3rt0M3rcad0/wks/releases/tag/v1.2.0",
+    "run_url": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38332286294",
+    "prerelease": false,
+    "github_latest": true,
+    "assets": 34,
+    "images": [
+      "ghcr.io/a1b3rt0m3rcad0/wks@sha256:d184ad8dba79140c84813c36d27b9359b60fd422769c4ffd2f8dc664a965e5f6",
+      "ghcr.io/a1b3rt0m3rcad0/wks-worker-docling@sha256:977d5a7553592c7e4a17c328744a0e659d312917b6881ad07f20fd50cfc07a38",
+      "ghcr.io/a1b3rt0m3rcad0/wks-worker-native@sha256:5f59339c821ba976a0547134da7dedf4f393b6b519e08a5e19254d4d47c8e430",
+      "ghcr.io/a1b3rt0m3rcad0/wks-worker-media@sha256:4f74e4c6246a2ecf7915b5eb2dc8732800fa29db84034d2fa518116d07b3b2e5"
+    ],
+    "platforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ]
+  },
+  "npm": {
+    "version": "1.2.0",
+    "channel": "latest",
+    "integrity": "sha512-c7XzEc2OuetKmGFrPSnfIc/dsXo7afHtGe5n4NaZw+oOfjaGTp4pT+Ba3+XfiHyhZ9iDDhJp/+238YaSvqZU+g==",
+    "provenance": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/wksctl@1.2.0",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "run_url": "https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38333806067",
+    "default_unversioned_install": "passed",
+    "native_version": {
+      "commit": "2ff1648abcb16bd63afe9cba435675cf190e7326",
+      "version": "1.2.0"
+    },
+    "launcher_checksums_and_skill": "passed",
+    "live_worker_status": "passed",
+    "qualified_platforms": [
+      "linux",
+      "macos",
+      "windows"
+    ]
+  }
+}

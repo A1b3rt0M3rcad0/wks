@@ -146,11 +146,13 @@ registry público também confirmou versão/commit, checksums/launcher, `worker 
 contra a API real e a Skill com as orientações de diagnóstico.
 Veja a [verificação da instalação](evidence/audit-2026-10-12/npm-install-verification.json).
 
-Esta publicação é candidata, no canal `next`; `latest` permanece em `1.1.0`.
-Para instalar exatamente as correções:
+A primeira publicação foi candidata no canal `next`; naquele momento, `latest`
+ainda era `1.1.0`. A entrega estável atual é **1.2.0**, publicada em `latest`.
+Veja a [entrega e política de releases estáveis](RELEASING.md#entrega-estável-120).
+Para instalar as correções na versão estável:
 
 ```sh
-npm install -g wksctl@1.2.0-rc.1
+npm install -g wksctl
 wksctl worker status
 wksctl init --agents
 ```

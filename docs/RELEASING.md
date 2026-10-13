@@ -52,10 +52,10 @@ Baixe os assets de uma release e confira `sha256sum -c SHA256SUMS` antes de inst
 Extraia o pacote de fontes para obter Compose, migrações, configuração e documentação.
 
 ```sh
-export WKS_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks:0.3.0
-export WKS_NATIVE_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-native:0.3.0
-export WKS_MEDIA_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-media:0.3.0
-export WKS_DOCLING_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-docling:0.3.0
+export WKS_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks:1.2.0
+export WKS_NATIVE_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-native:1.2.0
+export WKS_MEDIA_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-media:1.2.0
+export WKS_DOCLING_WORKER_IMAGE=ghcr.io/a1b3rt0m3rcad0/wks-worker-docling:1.2.0
 docker compose up -d --no-build
 ```
 
@@ -64,12 +64,12 @@ necessários, em um ambiente virtual:
 
 ```sh
 uv pip install --require-hashes -r api-requirements.txt
-uv pip install --no-deps wks_core-0.3.0-py3-none-any.whl wks_api-0.3.0-py3-none-any.whl
+uv pip install --no-deps wks_core-1.2.0-py3-none-any.whl wks_api-1.2.0-py3-none-any.whl
 alembic upgrade head
 wks api
 # No ambiente separado do worker nativo:
 uv pip install --require-hashes -r native-requirements.txt
-uv pip install --no-deps wks_core-0.3.0-py3-none-any.whl wks_worker-0.3.0-py3-none-any.whl wks_worker_native-0.3.0-py3-none-any.whl
+uv pip install --no-deps wks_core-1.2.0-py3-none-any.whl wks_worker-1.2.0-py3-none-any.whl wks_worker_native-1.2.0-py3-none-any.whl
 wks-worker-native
 ```
 
@@ -112,3 +112,20 @@ As versões candidatas históricas conservam o canal `next` para retomada da mes
 npm install -g wksctl
 wksctl init --agents
 ```
+
+
+## Entrega estável 1.2.0
+
+A [release v1.2.0](https://github.com/A1b3rt0M3rcad0/wks/releases/tag/v1.2.0)
+aponta para `2ff1648abcb16bd63afe9cba435675cf190e7326` e é a release estável mais recente.
+A [CI completa](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38332286033)
+passou com 229 testes Python e cinco de browser, zero falhas/skips. A
+[pipeline de release](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38332286294)
+qualificou o candidato e as quatro imagens amd64/arm64 com decoders reais e API/workers
+independentes. A [publicação npm](https://github.com/A1b3rt0M3rcad0/wks/actions/runs/38333806067)
+qualificou CLI/Skill em Windows, macOS e Linux e confirmou `latest=1.2.0`.
+
+Uma instalação nova de `wksctl`, sem informar versão ou canal, executou a versão
+estável 1.2.0 do commit esperado, instalou a Skill e consultou `worker status` na API.
+O [registro da entrega](evidence/stable-1.2.0/verification.json) conserva versões,
+provenance, referências de imagens e resultados.
